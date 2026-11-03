@@ -1,69 +1,67 @@
-import Image from "next/image";
+import { db } from "@/lib/db";
+import { Card } from "@/components/ui";
+import { signIn } from "./actions";
 
-export default function Home() {
+function Who({ kind, id, label, sub, needsCode }: { kind: string; id?: string; label: string; sub: string; needsCode: boolean }) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <form action={signIn}>
+      <input type="hidden" name="kind" value={kind} />
+      {id && <input type="hidden" name="id" value={id} />}
+      {needsCode && <input type="hidden" name="code" className="code-sink" />}
+      <button className="w-full rounded-md border border-stone-200 px-3 py-2 text-left hover:border-stone-400 hover:bg-stone-50">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-xs text-stone-500">{sub}</div>
+      </button>
+    </form>
+  );
+}
+
+export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  const needsCode = Boolean(process.env.DEMO_ACCESS_CODE);
+  const company = await db.company.findFirst({ where: { slug: "northwind" }, include: { payees: { orderBy: [{ role: "desc" }, { name: "asc" }] } } });
+  return (
+    <div className="space-y-8">
+      <div className="max-w-2xl">
+        <h1 className="text-3xl font-semibold tracking-tight">Sales comp, run for you.</h1>
+        <p className="mt-2 text-stone-600">
+          Milkcrate designs your comp plan, calculates every payout, answers every rep question, and hands you an approved payroll file each month. This prototype runs on a fictional customer, Northwind Analytics (14 AEs, 2 managers).
+        </p>
+      </div>
+      {needsCode && (
+        <div className="max-w-sm">
+          <label className="text-sm font-medium" htmlFor="code">Access code</label>
+          <input id="code" form="none" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" placeholder="Enter the demo access code" />
+          {error === "code" && <p className="mt-1 text-sm text-red-700">That code didn&apos;t match.</p>}
+          <script dangerouslySetInnerHTML={{ __html: "document.getElementById('code').addEventListener('input',e=>document.querySelectorAll('.code-sink').forEach(i=>i.value=e.target.value))" }} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card title="Milkcrate">
+          <div className="space-y-2">
+            <Who kind="operator" label="Comp specialist" sub="Operator console across all customers" needsCode={needsCode} />
+          </div>
+        </Card>
+        {company && (
+          <Card title={`${company.name}: leaders`}>
+            <div className="space-y-2">
+              <Who kind="approver" id={company.id} label={company.approverName} sub="Approves each close" needsCode={needsCode} />
+              {company.payees.filter((p) => p.role === "MANAGER").map((p) => (
+                <Who key={p.id} kind="payee" id={p.id} label={p.name} sub={p.title} needsCode={needsCode} />
+              ))}
+            </div>
+          </Card>
+        )}
+        {company && (
+          <Card title={`${company.name}: reps`}>
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {company.payees.filter((p) => p.role === "REP" && !p.endDate).map((p) => (
+                <Who key={p.id} kind="payee" id={p.id} label={p.name} sub={p.startDate > "2026-08-01" ? "New hire, ramping" : p.title} needsCode={needsCode} />
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
