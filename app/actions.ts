@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit, liveCalc, runClose, CLOSED_STATUSES } from "@/lib/close";
-import { PLAN_TEMPLATES, whatIf as engineWhatIf, type Month } from "@/lib/engine";
+import { PLAN_TEMPLATES, addMonths, whatIf as engineWhatIf, type Month } from "@/lib/engine";
 import { answerQuestion } from "@/lib/explainer";
 import { actorName, clearSession, getSession, requireRole, setSession } from "@/lib/session";
 import { currentMonth } from "@/lib/clock";
@@ -116,6 +116,7 @@ export async function createAdjustment(formData: FormData) {
   const data = adjustmentSchema.parse(Object.fromEntries(formData));
   const payee = await db.payee.findUniqueOrThrow({ where: { id: data.payeeId } });
   if (s.role === "leader" && payee.companyId !== s.companyId) throw new Error("Forbidden");
+  if (s.role === "leader" && !s.approver && payee.managerId !== s.payeeId) throw new Error("Managers can only request adjustments for their own team");
   await db.adjustment.create({ data: { ...data, companyId: payee.companyId, approved: false, createdBy: actorName(s) } });
   await audit(payee.companyId, actorName(s), "adjustment.requested", `${data.type} ${data.amount} for ${payee.name}: ${data.reason}`);
   revalidatePath("/", "layout");
@@ -126,9 +127,16 @@ export async function approveAdjustment(id: string) {
   if (!s.approver) throw new Error("Only the named approver can approve adjustments");
   const adj = await db.adjustment.findUniqueOrThrow({ where: { id }, include: { payee: true } });
   if (adj.companyId !== s.companyId) throw new Error("Forbidden");
-  await db.adjustment.update({ where: { id }, data: { approved: true } });
-  await audit(adj.companyId, s.name, "adjustment.approved", `${adj.type} ${adj.amount} for ${adj.payee.name}`);
-  const period = await db.period.findUnique({ where: { companyId_month: { companyId: adj.companyId, month: adj.month } } });
+  // A month that's already approved is locked, so the adjustment moves to the first open close.
+  let month = adj.month;
+  for (;;) {
+    const p = await db.period.findUnique({ where: { companyId_month: { companyId: adj.companyId, month } } });
+    if (!p || !CLOSED_STATUSES.includes(p.status as never)) break;
+    month = addMonths(month, 1);
+  }
+  await db.adjustment.update({ where: { id }, data: { approved: true, month } });
+  await audit(adj.companyId, s.name, "adjustment.approved", `${adj.type} ${adj.amount} for ${adj.payee.name}${month !== adj.month ? ` (moved from ${adj.month} to ${month}, which is still open)` : ""}`);
+  const period = await db.period.findUnique({ where: { companyId_month: { companyId: adj.companyId, month } } });
   if (period && !CLOSED_STATUSES.includes(period.status as never) && period.status !== "OPEN") await runClose(period.id, "Calculator agent");
   revalidatePath("/", "layout");
 }
@@ -206,13 +214,17 @@ export async function importDealsCsv(formData: FormData) {
     const term = Number(col(r, "term months", "term", "contract term")) || null;
     const stageRaw = col(r, "stage", "forecast category").toLowerCase();
     const stage = stageRaw.includes("commit") ? "commit" : stageRaw.includes("best") ? "best_case" : "closed_won";
-    const data = { stage, name: col(r, "name", "opportunity name", "deal name") || externalId, account: col(r, "account", "account name", "company") || "Unknown", ownerId: owner?.id ?? null, ownerLabel, amount, closeDate, termMonths: term, source: "csv" };
+    const measure = col(r, "measure", "type").toLowerCase().includes("usage") ? "usage_revenue" : "new_arr";
+    const data = { stage, measure, name: col(r, "name", "opportunity name", "deal name") || externalId, account: col(r, "account", "account name", "company") || "Unknown", ownerId: owner?.id ?? null, ownerLabel, amount, closeDate, termMonths: term, source: "csv" };
     const existing = await db.deal.findFirst({ where: { companyId, externalId } });
     if (existing) await db.deal.update({ where: { id: existing.id }, data });
     else await db.deal.create({ data: { ...data, companyId, externalId } });
     imported++;
   }
   await audit(companyId, actorName(s), "data.csv_import", `Imported ${imported} deals from CSV (${unmatched} with unmatched owners)`);
+  // Closes in progress must reflect the new data before anyone can sign off or approve.
+  const inProgress = await db.period.findMany({ where: { companyId, status: { in: ["IN_REVIEW", "SIGNED_OFF"] } } });
+  for (const p of inProgress) await runClose(p.id, "Calculator agent");
   revalidatePath("/ops", "layout");
   redirect(`/ops/${(await db.company.findUniqueOrThrow({ where: { id: companyId } })).slug}/data?imported=${imported}&unmatched=${unmatched}`);
 }

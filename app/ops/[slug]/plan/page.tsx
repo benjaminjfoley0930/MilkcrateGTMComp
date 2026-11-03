@@ -30,7 +30,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
     const volatility = Math.sqrt(b.months.reduce((a, m) => a + (m.payout - mean) ** 2, 0) / b.months.length) / mean;
     return { key, t, b, atTarget: reps.filter((r) => r.total >= r.target).length, reps: reps.length, min: ratios[0] ?? 0, max: ratios[ratios.length - 1] ?? 0, volatility };
   });
-  const current = models.find((m) => m.key === versions[0]?.template) ?? models[0];
+  const current = models.find((m) => m.key === active?.template) ?? models[0];
   const pickBy = (score: (m: (typeof models)[number]) => number) => [...models].sort((a, b) => score(a) - score(b))[0];
   const recs = [
     { goal: "Manage cash", m: pickBy((m) => (m.atTarget < current.atTarget - 1 ? Infinity : m.b.totalPayout)), why: (m: (typeof models)[number]) => `Lowest modeled cost that keeps ${m.atTarget} of ${m.reps} reps at or above target pay.` },
@@ -38,7 +38,8 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
     { goal: "Predictable monthly cost", m: pickBy((m) => m.volatility), why: (m: (typeof models)[number]) => `Smallest month-to-month swing in payouts (${pct(m.volatility)} variation).` },
   ];
   const maxMonth = Math.max(...models.flatMap((m) => m.b.months.map((x) => x.payout)));
-  const active = versions[0];
+  const inEffect = versions.filter((v) => v.effectiveFrom <= `${currentMonth()}-31`).sort((a, b) => (a.effectiveFrom === b.effectiveFrom ? b.version - a.version : b.effectiveFrom.localeCompare(a.effectiveFrom)));
+  const active = inEffect[0];
   const activeConfig = active ? planSchema.parse(active.config) : null;
   const colors = ["bg-stone-800", "bg-sky-600", "bg-amber-500"];
 
@@ -132,7 +133,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
       <Card title="Version history">
         <table className="w-full text-sm">
           <thead><tr><Th>Version</Th><Th>Template</Th><Th>Effective</Th><Th>Rep sign-off</Th></tr></thead>
-          <tbody>{versions.map((v) => <tr key={v.id}><Td>v{v.version}</Td><Td>{PLAN_TEMPLATES[v.template]?.label ?? v.template}</Td><Td>{dateLabel(v.effectiveFrom)}</Td><Td>{v.signedAt ? dateLabel(v.signedAt) : <Badge tone="amber">Pending</Badge>}</Td></tr>)}</tbody>
+          <tbody>{versions.map((v) => <tr key={v.id}><Td>v{v.version}</Td><Td>{PLAN_TEMPLATES[v.template]?.label ?? v.template}</Td><Td>{dateLabel(v.effectiveFrom)} {v.id === active?.id ? <Badge tone="green">In effect</Badge> : v.effectiveFrom > `${currentMonth()}-31` ? <Badge tone="blue">Scheduled</Badge> : null}</Td><Td>{v.signedAt ? dateLabel(v.signedAt) : <Badge tone="amber">Pending</Badge>}</Td></tr>)}</tbody>
         </table>
       </Card>
     </div>
