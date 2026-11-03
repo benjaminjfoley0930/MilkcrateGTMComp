@@ -44,11 +44,11 @@ export default async function RepPortal() {
       </div>
       <Card title={`Quota progress, ${result.quarter}`}>
         <Bar value={me?.attainment ?? 0} />
-        <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-stone-600">{describeTiers(input.plan).map((t) => <li key={t}>{t}</li>)}</ul>
+        <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-stone-700">{describeTiers(input.plan).map((t) => <li key={t}>{t}</li>)}</ul>
       </Card>
       <div className="grid gap-4 md:grid-cols-2">
         <Card title={`Deals credited in ${monthLabel(month)}`}>
-          {lines.length === 0 ? <p className="text-sm text-stone-500">No deals credited yet this month.</p> : (
+          {lines.length === 0 ? <p className="text-sm text-stone-600">No deals credited yet this month.</p> : (
             <table className="w-full text-sm">
               <thead><tr><Th>Deal</Th><Th right>ARR</Th><Th right>You earn</Th></tr></thead>
               <tbody>
@@ -56,7 +56,7 @@ export default async function RepPortal() {
                   const d = deals.find((x) => x.id === l.dealId);
                   return (
                     <tr key={i}>
-                      <Td><div className="font-medium">{d?.name ?? l.type}</div><div className="text-xs text-stone-500">{l.type === "KICKER" ? "Multi-year kicker" : l.description.split(": ").slice(1).join(": ")}</div></Td>
+                      <Td><div className="font-medium">{d?.name ?? l.type}</div><div className="text-xs text-stone-600">{l.type === "KICKER" ? "Multi-year kicker" : l.description.split(": ").slice(1).join(": ")}</div></Td>
                       <Td right>{d && l.type !== "KICKER" ? usd(d.amount) : ""}</Td>
                       <Td right className="font-medium">{usd(l.amount, true)}</Td>
                     </tr>
@@ -80,7 +80,7 @@ export default async function RepPortal() {
             {questions.map((qq) => (
               <li key={qq.id} className="rounded-md bg-stone-50 p-3 text-sm">
                 <div className="flex items-center justify-between gap-2"><span className="font-medium">&ldquo;{qq.text}&rdquo;</span><StatusBadge status={qq.status} /></div>
-                {qq.answer ? <p className="mt-1 whitespace-pre-line text-stone-700">{qq.answer}</p> : <p className="mt-1 text-xs text-stone-500">A specialist is reviewing the answer. Usually under an hour.</p>}
+                {qq.answer ? <p className="mt-1 whitespace-pre-line text-stone-700">{qq.answer}</p> : <p className="mt-1 text-xs text-stone-600">A specialist is reviewing the answer. Usually under an hour.</p>}
               </li>
             ))}
           </ul>
@@ -92,7 +92,7 @@ export default async function RepPortal() {
                 <tr><Td>{monthLabel(pending.month)}</Td><Td><StatusBadge status={pending.status} /></Td><Td right>{usd(pending.lines.reduce((a, l) => a + l.amount, 0), true)}</Td><Td right><Link className="text-xs underline" href={`/statements/${pending.id}/${s.payeeId}`}>Preview</Link></Td></tr>
               )}
               {paid.map((p) => (
-                <tr key={p.id}><Td>{monthLabel(p.month)}</Td><Td><span className="text-xs text-stone-500">Approved {dateLabel(p.approvedAt)}</span></Td><Td right>{usd(p.lines.reduce((a, l) => a + l.amount, 0), true)}</Td><Td right><Link className="text-xs underline" href={`/statements/${p.id}/${s.payeeId}`}>View</Link></Td></tr>
+                <tr key={p.id}><Td>{monthLabel(p.month)}</Td><Td><span className="text-xs text-stone-600">Approved {dateLabel(p.approvedAt)}</span></Td><Td right>{usd(p.lines.reduce((a, l) => a + l.amount, 0), true)}</Td><Td right><Link className="text-xs underline" href={`/statements/${p.id}/${s.payeeId}`}>View</Link></Td></tr>
               ))}
             </tbody>
           </table>

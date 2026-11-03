@@ -49,7 +49,7 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
         action={
           <div className="flex gap-1">
             {months.map((m) => (
-              <Link key={m} href={`/ops/${slug}?month=${m}`} className={`rounded px-2 py-1 text-xs ${m === month ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-200"}`}>
+              <Link key={m} href={`/ops/${slug}?month=${m}`} className={`rounded px-2 py-1 text-xs ${m === month ? "bg-stone-900 text-white" : "text-stone-700 hover:bg-stone-200"}`}>
                 {monthLabel(m)}
               </Link>
             ))}
@@ -61,7 +61,7 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
       {!period ? (
         <Card>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-stone-600">
+            <p className="text-sm text-stone-700">
               {month >= currentMonth() ? `${monthLabel(month)} is still in progress. Live estimate: ${usd(result.totals.payout)} across ${result.lines.length} payout lines.` : `The ${monthLabel(month)} close hasn't started.`}
             </p>
             <form action={startClose.bind(null, company.id, month)}>
@@ -88,9 +88,9 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
             <ol className="grid gap-2 md:grid-cols-5">
               {steps.map((s, i) => (
                 <li key={s.label} className={`rounded-md border px-3 py-2 text-sm ${s.done ? "border-emerald-200 bg-emerald-50" : "border-stone-200"}`}>
-                  <div className="text-xs text-stone-500">Step {i + 1}</div>
+                  <div className="text-xs text-stone-600">Step {i + 1}</div>
                   <div className="font-medium">{s.label}</div>
-                  <div className="text-xs text-stone-500">{s.done ? (s.when ? dateLabel(s.when) : "Done") : "Pending"}</div>
+                  <div className="text-xs text-stone-600">{s.done ? (s.when ? dateLabel(s.when) : "Done") : "Pending"}</div>
                 </li>
               ))}
             </ol>
@@ -105,10 +105,10 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
                       <div>
                         <div className="flex items-center gap-2">
                           <Badge tone={e.status === "OPEN" ? SEV[e.severity] : "green"}>{e.status === "OPEN" ? e.severity : "resolved"}</Badge>
-                          <span className="text-xs font-medium text-stone-500">{e.kind.replaceAll("_", " ").toLowerCase()}</span>
+                          <span className="text-xs font-medium text-stone-600">{e.kind.replaceAll("_", " ").toLowerCase()}</span>
                         </div>
                         <p className="mt-1 text-sm">{e.message}</p>
-                        {e.resolution && <p className="mt-1 text-xs text-stone-500">{e.resolution} · {e.resolvedBy}</p>}
+                        {e.resolution && <p className="mt-1 text-xs text-stone-600">{e.resolution} · {e.resolvedBy}</p>}
                       </div>
                       {e.status === "OPEN" && !locked && (
                         <form action={resolveException} className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -141,12 +141,12 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
                   const p = payees.find((x) => x.id === s.payeeId)!;
                   return (
                     <tr key={s.payeeId}>
-                      <Td><div className="font-medium">{p.name}</div><div className="text-xs text-stone-500">{p.role === "MANAGER" ? "Manager (team override)" : p.endDate ? `Left ${dateLabel(p.endDate)}` : p.title}</div></Td>
+                      <Td><div className="font-medium">{p.name}</div><div className="text-xs text-stone-600">{p.role === "MANAGER" ? "Manager (team override)" : p.endDate ? `Left ${dateLabel(p.endDate)}` : p.title}</div></Td>
                       <Td right>{usd(s.quota)}</Td>
                       <Td right>{usd(s.bookingsQtd)}</Td>
                       <Td><div className="flex items-center gap-2"><Bar value={s.attainment} /><span className="w-12 text-right text-xs tabular-nums">{pct(s.attainment)}</span></div></Td>
                       <Td right className="font-medium">{usd(byPayee.get(s.payeeId) ?? 0, true)}</Td>
-                      <Td right><Link className="text-xs text-stone-600 underline" href={`/statements/${period.id}/${s.payeeId}`}>Statement</Link></Td>
+                      <Td right><Link className="text-xs text-stone-700 underline" href={`/statements/${period.id}/${s.payeeId}`}>Statement</Link></Td>
                     </tr>
                   );
                 })}
@@ -162,7 +162,7 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
             <ul className="mb-4 space-y-1 text-sm">
               {pendingAdj.map((a) => <li key={a.id}><Badge tone="amber">Awaiting {company.approverName}</Badge> {a.type} {usd(a.amount)} for {a.payee.name}, {monthLabel(a.month)}: {a.reason}</li>)}
             </ul>
-          ) : <p className="mb-4 text-sm text-stone-500">No adjustments waiting for approval.</p>}
+          ) : <p className="mb-4 text-sm text-stone-600">No adjustments waiting for approval.</p>}
           <form action={createAdjustment} className="grid grid-cols-2 gap-2 text-sm">
             <select name="payeeId" className="rounded-md border border-stone-300 px-2 py-1.5">{payees.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             <select name="type" className="rounded-md border border-stone-300 px-2 py-1.5"><option>SPIFF</option><option>CLAWBACK</option><option>CORRECTION</option></select>
@@ -175,7 +175,7 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
         <Card title="Audit trail">
           <ul className="space-y-2 text-sm">
             {auditLog.map((a) => (
-              <li key={a.id}><span className="text-xs text-stone-500">{dateLabel(a.at)} · {a.actor}</span><div>{a.detail}</div></li>
+              <li key={a.id}><span className="text-xs text-stone-600">{dateLabel(a.at)} · {a.actor}</span><div>{a.detail}</div></li>
             ))}
           </ul>
         </Card>

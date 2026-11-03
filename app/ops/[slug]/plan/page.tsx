@@ -42,17 +42,17 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
         <Card title={<span>Active plan: v{active.version} · {PLAN_TEMPLATES[active.template]?.label ?? active.template}</span>} action={<Badge tone={active.signedAt ? "green" : "amber"}>{active.signedAt ? `Signed ${dateLabel(active.signedAt)}` : "Awaiting rep sign-off"}</Badge>}>
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-3 text-sm">
-              <div><div className="text-xs font-medium text-stone-500">Measure</div>New ARR, credited on closed-won, quarterly quota, paid monthly</div>
-              <div><div className="text-xs font-medium text-stone-500">Rate</div>Base rate = quarterly target variable / quarterly quota</div>
-              <div><div className="text-xs font-medium text-stone-500">Tiers</div><ul className="list-disc pl-5">{describeTiers(activeConfig).map((t) => <li key={t}>{t}</li>)}</ul></div>
-              <div><div className="text-xs font-medium text-stone-500">Cap</div>{activeConfig.capAttainment ? `${pct(activeConfig.capAttainment)} of quota` : "Uncapped"}</div>
-              <div><div className="text-xs font-medium text-stone-500">Kickers</div>{activeConfig.kickers.length ? activeConfig.kickers.map((k) => `${k.label}: +${pct(k.bonusPct)} on ${k.minTermMonths}+ month terms`).join("; ") : "None"}</div>
-              <div><div className="text-xs font-medium text-stone-500">New-hire ramp</div>{activeConfig.ramp.map((r, i) => `Month ${i + 1}: ${pct(r)}`).join(", ")} of quota, then full</div>
-              <div><div className="text-xs font-medium text-stone-500">Managers</div>{activeConfig.managerOverride.enabled ? "Override on team bookings, same tiers on team attainment" : "Not on plan"}</div>
-              <div><div className="text-xs font-medium text-stone-500">Effective</div>{dateLabel(active.effectiveFrom)}</div>
+              <div><div className="text-xs font-medium text-stone-600">Measure</div>New ARR, credited on closed-won, quarterly quota, paid monthly</div>
+              <div><div className="text-xs font-medium text-stone-600">Rate</div>Base rate = quarterly target variable / quarterly quota</div>
+              <div><div className="text-xs font-medium text-stone-600">Tiers</div><ul className="list-disc pl-5">{describeTiers(activeConfig).map((t) => <li key={t}>{t}</li>)}</ul></div>
+              <div><div className="text-xs font-medium text-stone-600">Cap</div>{activeConfig.capAttainment ? `${pct(activeConfig.capAttainment)} of quota` : "Uncapped"}</div>
+              <div><div className="text-xs font-medium text-stone-600">Kickers</div>{activeConfig.kickers.length ? activeConfig.kickers.map((k) => `${k.label}: +${pct(k.bonusPct)} on ${k.minTermMonths}+ month terms`).join("; ") : "None"}</div>
+              <div><div className="text-xs font-medium text-stone-600">New-hire ramp</div>{activeConfig.ramp.map((r, i) => `Month ${i + 1}: ${pct(r)}`).join(", ")} of quota, then full</div>
+              <div><div className="text-xs font-medium text-stone-600">Managers</div>{activeConfig.managerOverride.enabled ? "Override on team bookings, same tiers on team attainment" : "Not on plan"}</div>
+              <div><div className="text-xs font-medium text-stone-600">Effective</div>{dateLabel(active.effectiveFrom)}</div>
             </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-stone-500">Plan as code (the engine runs exactly this)</div>
+              <div className="mb-1 text-xs font-medium text-stone-600">Plan as code (the engine runs exactly this)</div>
               <pre className="max-h-96 overflow-auto rounded-md bg-stone-900 p-3 text-xs text-stone-100">{JSON.stringify(activeConfig, null, 2)}</pre>
             </div>
           </div>
@@ -65,7 +65,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
           <tbody>
             {models.map((m, i) => (
               <tr key={m.key}>
-                <Td><div className="flex items-center gap-2"><span className={`inline-block h-2.5 w-2.5 rounded-sm ${colors[i]}`} /><span className="font-medium">{m.t.label}</span>{active?.template === m.key && <Badge tone="green">Active</Badge>}</div><div className="text-xs text-stone-500">{m.t.summary}</div></Td>
+                <Td><div className="flex items-center gap-2"><span className={`inline-block h-2.5 w-2.5 rounded-sm ${colors[i]}`} /><span className="font-medium">{m.t.label}</span>{active?.template === m.key && <Badge tone="green">Active</Badge>}</div><div className="text-xs text-stone-600">{m.t.summary}</div></Td>
                 <Td right>{usd(m.b.totalPayout)}</Td>
                 <Td right>{pct(m.b.totalPayout / target)}</Td>
                 <Td right>{pct(m.b.costOfSales, 1)}</Td>
@@ -76,7 +76,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
           </tbody>
         </table>
         <div className="mt-6">
-          <div className="mb-2 text-xs font-medium text-stone-500">Modeled monthly payout</div>
+          <div className="mb-2 text-xs font-medium text-stone-600">Modeled monthly payout</div>
           <div className="flex h-40 items-end gap-2">
             {months.map((mo, mi) => (
               <div key={mo} className="flex flex-1 flex-col items-center gap-1">
@@ -85,7 +85,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
                     <div key={m.key} title={`${m.t.label}: ${usd(m.b.months[mi].payout)}`} className={`w-1/4 rounded-t-sm ${colors[i]}`} style={{ height: `${(m.b.months[mi].payout / maxMonth) * 100}%` }} />
                   ))}
                 </div>
-                <div className="text-[10px] text-stone-500">{monthLabel(mo).split(" ")[0]}</div>
+                <div className="text-[10px] text-stone-600">{monthLabel(mo).split(" ")[0]}</div>
               </div>
             ))}
           </div>

@@ -53,15 +53,15 @@ export default async function LeaderDashboard() {
           ) : null
         }>
           {period.status === "IN_REVIEW" || period.status === "OPEN" ? (
-            <p className="text-sm text-stone-600">Milkcrate is reviewing this close ({period.exceptions.filter((e) => e.status === "OPEN").length} items open). You&apos;ll get it for approval by {dateLabel(sla.due)}.</p>
+            <p className="text-sm text-stone-700">Milkcrate is reviewing this close ({period.exceptions.filter((e) => e.status === "OPEN").length} items open). You&apos;ll get it for approval by {dateLabel(sla.due)}.</p>
           ) : (
             <div className="grid gap-4 text-sm md:grid-cols-3">
-              <div><div className="text-xs text-stone-500">Total</div><div className="text-lg font-semibold">{usd(period.totalPayout, true)}</div><div className="text-xs text-stone-500">{prev ? `${usd(prev.totalPayout)} in ${monthLabel(prev.month)}` : ""}</div></div>
-              <div><div className="text-xs text-stone-500">Reviewed by Milkcrate</div><div>{period.exceptions.length} items checked and resolved</div><div className="text-xs text-stone-500">Signed off {dateLabel(period.signedOffAt)}</div></div>
-              <div><div className="text-xs text-stone-500">Largest payouts</div>{largest.map(([id, amt]) => <div key={id}>{payees.find((p) => p.id === id)?.name}: {usd(amt)}</div>)}</div>
+              <div><div className="text-xs text-stone-600">Total</div><div className="text-lg font-semibold">{usd(period.totalPayout, true)}</div><div className="text-xs text-stone-600">{prev ? `${usd(prev.totalPayout)} in ${monthLabel(prev.month)}` : ""}</div></div>
+              <div><div className="text-xs text-stone-600">Reviewed by Milkcrate</div><div>{period.exceptions.length} items checked and resolved</div><div className="text-xs text-stone-600">Signed off {dateLabel(period.signedOffAt)}</div></div>
+              <div><div className="text-xs text-stone-600">Largest payouts</div>{largest.map(([id, amt]) => <div key={id}>{payees.find((p) => p.id === id)?.name}: {usd(amt)}</div>)}</div>
             </div>
           )}
-          {period.status === "APPROVED" && <p className="mt-3 text-xs text-stone-500">Approved by {period.approvedBy}. Download the file and enter it in {company.payrollProvider}; that&apos;s the only step on your side.</p>}
+          {period.status === "APPROVED" && <p className="mt-3 text-xs text-stone-600">Approved by {period.approvedBy}. Download the file and enter it in {company.payrollProvider}; that&apos;s the only step on your side.</p>}
         </Card>
       )}
 
@@ -89,11 +89,11 @@ export default async function LeaderDashboard() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Adjustments awaiting approval">
-          {pendingAdj.length === 0 ? <p className="text-sm text-stone-500">Nothing waiting.</p> : (
+          {pendingAdj.length === 0 ? <p className="text-sm text-stone-600">Nothing waiting.</p> : (
             <ul className="space-y-2 text-sm">
               {pendingAdj.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-2">
-                  <span>{a.type} {usd(a.amount)} for {a.payee.name} ({monthLabel(a.month)}): {a.reason} <span className="text-xs text-stone-500">· requested by {a.createdBy}</span></span>
+                  <span>{a.type} {usd(a.amount)} for {a.payee.name} ({monthLabel(a.month)}): {a.reason} <span className="text-xs text-stone-600">· requested by {a.createdBy}</span></span>
                   {s.approver ? <form action={approveAdjustment.bind(null, a.id)}><Button variant="secondary">Approve</Button></form> : <Badge tone="amber">Awaiting {company.approverName}</Badge>}
                 </li>
               ))}
@@ -109,10 +109,10 @@ export default async function LeaderDashboard() {
             <input name="reason" placeholder="Reason" required className="col-span-2 rounded-md border border-stone-300 px-2 py-1.5" />
             <div className="col-span-2"><Button variant="secondary">Submit</Button></div>
           </form>
-          <p className="mt-2 text-xs text-stone-500">Milkcrate applies it in the next close; {company.approverName} approves every payout change.</p>
+          <p className="mt-2 text-xs text-stone-600">Milkcrate applies it in the next close; {company.approverName} approves every payout change.</p>
         </Card>
       </div>
-      <p className="text-xs text-stone-500"><Link className="underline" href="/">Switch user</Link> to see the rep or Milkcrate view.</p>
+      <p className="text-xs text-stone-600"><Link className="underline" href="/">Switch user</Link> to see the rep or Milkcrate view.</p>
     </div>
   );
 }

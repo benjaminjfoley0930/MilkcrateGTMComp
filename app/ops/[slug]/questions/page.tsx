@@ -25,7 +25,7 @@ export default async function QuestionsPage({ params }: { params: Promise<{ slug
           <Button variant="secondary">{company.autoSendAnswers ? "Turn off auto-send" : "Turn on auto-send"}</Button>
         </form>
       }>
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-stone-700">
           {company.autoSendAnswers
             ? "Explain and what-if answers go to reps right away. Missing-credit and policy questions always come to a specialist."
             : "Every answer waits for a specialist to review it before the rep sees it. Turn on auto-send once answers have proven accurate."}{" "}
@@ -33,11 +33,11 @@ export default async function QuestionsPage({ params }: { params: Promise<{ slug
         </p>
       </Card>
       <Card title={`Waiting on a specialist (${waiting.length})`}>
-        {waiting.length === 0 && <p className="text-sm text-stone-500">Nothing waiting.</p>}
+        {waiting.length === 0 && <p className="text-sm text-stone-600">Nothing waiting.</p>}
         <ul className="space-y-4">
           {waiting.map((q) => (
             <li key={q.id} className="rounded-md border border-stone-200 p-3">
-              <div className="flex items-center gap-2 text-xs text-stone-500">
+              <div className="flex items-center gap-2 text-xs text-stone-600">
                 <StatusBadge status={q.status} /><Badge>{CAT[q.category] ?? q.category}</Badge>
                 <span>{q.payee.name} · {dateLabel(q.createdAt)} · drafted by {q.model === "rules" ? "rules engine" : q.model}</span>
               </div>
@@ -58,7 +58,7 @@ export default async function QuestionsPage({ params }: { params: Promise<{ slug
         <ul className="divide-y divide-stone-100">
           {done.map((q) => (
             <li key={q.id} className="py-3 text-sm">
-              <div className="text-xs text-stone-500">{q.payee.name} · {dateLabel(q.createdAt)} · <Badge>{CAT[q.category] ?? q.category}</Badge> · {q.answeredBy}</div>
+              <div className="text-xs text-stone-600">{q.payee.name} · {dateLabel(q.createdAt)} · <Badge>{CAT[q.category] ?? q.category}</Badge> · {q.answeredBy}</div>
               <p className="mt-1 font-medium">&ldquo;{q.text}&rdquo;</p>
               <p className="mt-1 whitespace-pre-line text-stone-700">{q.answer}</p>
             </li>

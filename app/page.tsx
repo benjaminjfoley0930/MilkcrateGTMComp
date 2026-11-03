@@ -10,7 +10,7 @@ function Who({ kind, id, label, sub, needsCode }: { kind: string; id?: string; l
       {needsCode && <input type="hidden" name="code" className="code-sink" />}
       <button className="w-full rounded-md border border-stone-200 px-3 py-2 text-left hover:border-stone-400 hover:bg-stone-50">
         <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-stone-500">{sub}</div>
+        <div className="text-xs text-stone-600">{sub}</div>
       </button>
     </form>
   );
@@ -24,7 +24,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
     <div className="space-y-8">
       <div className="max-w-2xl">
         <h1 className="text-3xl font-semibold tracking-tight">Sales comp, run for you.</h1>
-        <p className="mt-2 text-stone-600">
+        <p className="mt-2 text-stone-700">
           Milkcrate designs your comp plan, calculates every payout, answers every rep question, and hands you an approved payroll file each month. This prototype runs on a fictional customer, Northwind Analytics (14 AEs, 2 managers).
         </p>
       </div>

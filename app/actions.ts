@@ -210,7 +210,7 @@ export async function importDealsCsv(formData: FormData) {
   redirect(`/ops/${(await db.company.findUniqueOrThrow({ where: { id: companyId } })).slug}/data?imported=${imported}&unmatched=${unmatched}`);
 }
 
-export type WhatIfState = { amount?: number; extra?: number; before?: number; after?: number; lines?: { description: string; amount: number }[]; error?: string };
+export type WhatIfState = { amount?: number; term?: number; extra?: number; before?: number; after?: number; lines?: { description: string; amount: number }[]; error?: string };
 
 export async function runWhatIf(_prev: WhatIfState, formData: FormData): Promise<WhatIfState> {
   const s = await getSession();
@@ -220,5 +220,5 @@ export async function runWhatIf(_prev: WhatIfState, formData: FormData): Promise
   if (!Number.isFinite(amount) || amount <= 0) return { error: "Enter a deal amount" };
   const { input } = await liveCalc(s.companyId, currentMonth());
   const r = engineWhatIf(input, s.payeeId, amount, term);
-  return { amount, extra: r.extraPayout, before: r.attainmentBefore, after: r.attainmentAfter, lines: r.lines.map((l) => ({ description: l.description, amount: l.amount })) };
+  return { amount, term, extra: r.extraPayout, before: r.attainmentBefore, after: r.attainmentAfter, lines: r.lines.map((l) => ({ description: l.description, amount: l.amount })) };
 }

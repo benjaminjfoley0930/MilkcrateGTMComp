@@ -26,7 +26,7 @@ export default async function DataPage({ params, searchParams }: { params: Promi
           <input type="hidden" name="companyId" value={company.id} />
           <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
           <Button>Import</Button>
-          <span className="text-xs text-stone-500">Columns: Opportunity ID, Name, Account, Owner (name or email), Amount, Close Date (YYYY-MM-DD), Term Months. Existing IDs are updated.</span>
+          <span className="text-xs text-stone-600">Columns: Opportunity ID, Name, Account, Owner (name or email), Amount, Close Date (YYYY-MM-DD), Term Months. Existing IDs are updated.</span>
         </form>
       </Card>
       <Card title={`Roster (${payees.filter((p) => !p.endDate).length} active)`}>
@@ -34,8 +34,8 @@ export default async function DataPage({ params, searchParams }: { params: Promi
           <thead><tr><Th>Name</Th><Th>Role</Th><Th>Manager</Th><Th>Start</Th><Th>End</Th><Th right>Base</Th><Th right>Target variable</Th><Th right>Quarterly quota</Th></tr></thead>
           <tbody>
             {payees.map((p) => (
-              <tr key={p.id} className={p.endDate ? "text-stone-400" : ""}>
-                <Td><div className="font-medium">{p.name}</div><div className="text-xs text-stone-500">{p.email}</div></Td>
+              <tr key={p.id} className={p.endDate ? "text-stone-500" : ""}>
+                <Td><div className="font-medium">{p.name}</div><div className="text-xs text-stone-600">{p.email}</div></Td>
                 <Td>{p.title}</Td>
                 <Td>{p.manager?.name ?? "–"}</Td>
                 <Td>{dateLabel(p.startDate)}{p.startDate > "2026-08-01" && <div><Badge tone="blue">Ramping</Badge></div>}</Td>
@@ -53,8 +53,8 @@ export default async function DataPage({ params, searchParams }: { params: Promi
           <thead><tr><Th>Opportunity</Th><Th>Owner</Th><Th>Close date</Th><Th right>New ARR</Th><Th right>Term</Th><Th>Source</Th></tr></thead>
           <tbody>
             {deals.map((d) => (
-              <tr key={d.id} className={d.excluded ? "text-stone-400 line-through" : ""}>
-                <Td><div className="font-medium">{d.name}</div><div className="text-xs text-stone-500">{d.externalId}</div></Td>
+              <tr key={d.id} className={d.excluded ? "text-stone-500 line-through" : ""}>
+                <Td><div className="font-medium">{d.name}</div><div className="text-xs text-stone-600">{d.externalId}</div></Td>
                 <Td>{d.owner?.name ?? <Badge tone="red">{d.ownerLabel ?? "Unknown"}</Badge>}</Td>
                 <Td>{dateLabel(d.closeDate)}</Td>
                 <Td right>{usd(d.amount)}</Td>

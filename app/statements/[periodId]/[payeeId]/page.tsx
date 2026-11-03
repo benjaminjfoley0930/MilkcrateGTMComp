@@ -24,14 +24,14 @@ export default async function Statement({ params }: { params: Promise<{ periodId
     <div className="mx-auto max-w-3xl rounded-lg border border-stone-200 bg-white p-8 print:border-0 print:p-0">
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-stone-500">Commission statement</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-stone-600">Commission statement</div>
           <h1 className="mt-1 text-2xl font-semibold">{payee.name}</h1>
-          <div className="text-sm text-stone-600">{period.company.name} · {monthLabel(period.month)} · Plan v{period.planVersion?.version}</div>
+          <div className="text-sm text-stone-700">{period.company.name} · {monthLabel(period.month)} · Plan v{period.planVersion?.version}</div>
         </div>
         <div className="text-right">
           {final ? <Badge tone="green">Approved {dateLabel(period.approvedAt)}</Badge> : <Badge tone="amber">Preliminary, not yet approved</Badge>}
           <div className="mt-2 text-3xl font-semibold tabular-nums">{usd(total, true)}</div>
-          <div className="text-xs text-stone-500">Total this period</div>
+          <div className="text-xs text-stone-600">Total this period</div>
         </div>
       </div>
       <table className="mt-8 w-full text-sm">
@@ -44,16 +44,16 @@ export default async function Statement({ params }: { params: Promise<{ periodId
               <Td className="whitespace-nowrap">{TYPE_LABEL[l.type] ?? l.type}</Td>
               <Td>
                 {l.description}
-                {l.deal && <div className="text-xs text-stone-500">{l.deal.externalId} · closed {dateLabel(l.deal.closeDate)} · {usd(l.deal.amount)} ARR · {l.deal.termMonths ?? 12}-month term</div>}
+                {l.deal && <div className="text-xs text-stone-600">{l.deal.externalId} · closed {dateLabel(l.deal.closeDate)} · {usd(l.deal.amount)} ARR · {l.deal.termMonths ?? 12}-month term</div>}
               </Td>
               <Td right>{usd(l.amount, true)}</Td>
             </tr>
           ))}
-          {lines.length === 0 && <tr><Td className="text-stone-500">No payouts this period.</Td><Td /><Td /></tr>}
+          {lines.length === 0 && <tr><Td className="text-stone-600">No payouts this period.</Td><Td /><Td /></tr>}
           <tr><Td /><Td className="font-medium">Total</Td><Td right className="font-semibold">{usd(total, true)}</Td></tr>
         </tbody>
       </table>
-      <p className="mt-6 text-xs text-stone-500">
+      <p className="mt-6 text-xs text-stone-600">
         Calculated by Milkcrate from {period.company.crm} data under your signed plan, reviewed by a Milkcrate comp specialist{final ? ` and approved by ${period.approvedBy}` : ""}. Paid through {period.company.payrollProvider} in your regular payroll. Questions? Ask in the portal or in Slack.
       </p>
       <div className="mt-6 print:hidden"><PrintButton /></div>

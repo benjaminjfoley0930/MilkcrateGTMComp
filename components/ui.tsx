@@ -19,9 +19,9 @@ export function Stat({ label, value, sub, tone }: { label: string; value: ReactN
   const toneClass = tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-red-700" : tone === "warn" ? "text-amber-700" : "text-stone-900";
   return (
     <div className="rounded-lg border border-stone-200 bg-white px-4 py-3">
-      <div className="text-xs font-medium text-stone-500">{label}</div>
+      <div className="text-xs font-medium text-stone-600">{label}</div>
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-stone-500">{sub}</div>}
+      {sub && <div className="mt-0.5 text-xs text-stone-600">{sub}</div>}
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function Button({ children, variant = "primary", ...rest }: React.ButtonH
       ? "bg-stone-900 text-white hover:bg-stone-700 disabled:bg-stone-300"
       : variant === "danger"
         ? "border border-red-200 bg-white text-red-700 hover:bg-red-50"
-        : "border border-stone-300 bg-white text-stone-800 hover:bg-stone-50 disabled:text-stone-400";
+        : "border border-stone-300 bg-white text-stone-800 hover:bg-stone-50 disabled:text-stone-500";
   return (
     <button {...rest} className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${v} ${rest.className ?? ""}`}>
       {children}
@@ -81,7 +81,7 @@ export function Button({ children, variant = "primary", ...rest }: React.ButtonH
 }
 
 export function Th({ children, right }: { children?: ReactNode; right?: boolean }) {
-  return <th className={`border-b border-stone-200 px-3 py-2 text-xs font-medium text-stone-500 ${right ? "text-right" : "text-left"}`}>{children}</th>;
+  return <th className={`border-b border-stone-200 px-3 py-2 text-xs font-medium text-stone-600 ${right ? "text-right" : "text-left"}`}>{children}</th>;
 }
 
 export function Td({ children, right, className = "" }: { children?: ReactNode; right?: boolean; className?: string }) {
@@ -104,7 +104,7 @@ export function SubNav({ items, active }: { items: { href: string; label: string
   return (
     <nav className="flex gap-1 border-b border-stone-200">
       {items.map((i) => (
-        <Link key={i.href} href={i.href} className={`-mb-px border-b-2 px-3 py-2 text-sm ${i.href === active ? "border-stone-900 font-medium text-stone-900" : "border-transparent text-stone-500 hover:text-stone-800"}`}>
+        <Link key={i.href} href={i.href} className={`-mb-px border-b-2 px-3 py-2 text-sm ${i.href === active ? "border-stone-900 font-medium text-stone-900" : "border-transparent text-stone-600 hover:text-stone-800"}`}>
           {i.label}
         </Link>
       ))}
@@ -117,7 +117,7 @@ export function PageTitle({ title, sub, action }: { title: ReactNode; sub?: Reac
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-xl font-semibold text-stone-900">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-stone-500">{sub}</p>}
+        {sub && <p className="mt-1 text-sm text-stone-600">{sub}</p>}
       </div>
       {action}
     </div>
