@@ -5,18 +5,20 @@ import { closeMonth, companyBySlug, slaState } from "@/lib/queries";
 import { liveCalc } from "@/lib/close";
 import { addMonths, monthLabel } from "@/lib/engine";
 import { currentMonth } from "@/lib/clock";
-import { dateLabel, pct, usd } from "@/lib/format";
+import { dateLabel, dateTimeLabel, pct, usd } from "@/lib/format";
 import { Badge, Bar, Button, Card, PageTitle, Stat, StatusBadge, Td, Th } from "@/components/ui";
 import { recalculate, resolveException, signOff, startClose, createAdjustment } from "@/app/actions";
 import { CompanyNav } from "./nav";
 
 const SEV: Record<string, "red" | "amber" | "gray"> = { high: "red", medium: "amber", low: "gray" };
 
-export default async function ClosePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ month?: string }> }) {
+export default async function ClosePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ month?: string; recalc?: string }> }) {
   await requireRole("operator");
   const { slug } = await params;
   const company = await companyBySlug(slug);
-  const month = (await searchParams).month ?? closeMonth();
+  const sp = await searchParams;
+  const month = sp.month ?? closeMonth();
+  const recalcDelta = sp.recalc !== undefined ? Number(sp.recalc) : null;
   const period = await db.period.findUnique({
     where: { companyId_month: { companyId: company.id, month } },
     include: { exceptions: { orderBy: [{ status: "asc" }, { severity: "asc" }] }, lines: true, planVersion: true },
@@ -73,14 +75,20 @@ export default async function ClosePage({ params, searchParams }: { params: Prom
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat label="Total payout" value={usd(period.totalPayout)} sub={prev ? `${usd(prev.totalPayout)} last month` : undefined} />
-            <Stat label="Status" value={<StatusBadge status={period.status} />} sub={period.calculatedAt ? `Calculated ${dateLabel(period.calculatedAt)}` : undefined} />
+            <Stat label="Status" value={<StatusBadge status={period.status} />} sub={period.calculatedAt ? `Calculated ${dateTimeLabel(period.calculatedAt)}` : undefined} />
             <Stat label="Open exceptions" value={openEx.length} tone={openEx.length ? "warn" : "good"} sub={`${period.exceptions.length - openEx.length} resolved`} />
             <Stat label="SLA" value={sla.label} tone={sla.late ? "bad" : sla.delivered ? "good" : undefined} sub={sla.delivered ? `Delivered ${dateLabel(sla.delivered)}, due ${dateLabel(sla.due)}` : `Due ${dateLabel(sla.due)}`} />
           </div>
 
+          {recalcDelta !== null && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">
+              Recalculated from the latest data at {dateTimeLabel(period.calculatedAt)}.{" "}
+              {Math.abs(recalcDelta) < 0.01 ? "Nothing changed: the total is still " + usd(period.totalPayout, true) + "." : `Total ${recalcDelta > 0 ? "up" : "down"} ${usd(Math.abs(recalcDelta), true)} to ${usd(period.totalPayout, true)}.`}
+            </div>
+          )}
           <Card title="Close checklist" action={
             <div className="flex gap-2">
-              {!locked && <form action={recalculate.bind(null, period.id)}><Button variant="secondary">Recalculate</Button></form>}
+              {!locked && <form action={recalculate.bind(null, period.id)}><Button variant="secondary" pendingText="Recalculating…">Recalculate</Button></form>}
               {period.status === "IN_REVIEW" && <form action={signOff.bind(null, period.id)}><Button disabled={openEx.length > 0}>Sign off close</Button></form>}
               {locked && <a href={`/api/periods/${period.id}/payroll`}><Button>Download {company.payrollProvider} file</Button></a>}
             </div>

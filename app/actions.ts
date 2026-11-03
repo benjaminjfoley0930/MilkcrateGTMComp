@@ -53,9 +53,11 @@ export async function startClose(companyId: string, month: Month) {
 }
 
 export async function recalculate(periodId: string) {
-  const { s } = await operatorPeriod(periodId);
-  await runClose(periodId, actorName(s));
+  const { s, period } = await operatorPeriod(periodId);
+  const result = await runClose(periodId, actorName(s));
+  const delta = Math.round((result.totals.payout - period.totalPayout) * 100) / 100;
   revalidatePath("/ops", "layout");
+  redirect(`/ops/${period.company.slug}?month=${period.month}&recalc=${delta}&at=${Date.now()}`);
 }
 
 export async function resolveException(formData: FormData) {
@@ -131,10 +133,12 @@ export async function approveAdjustment(id: string) {
   revalidatePath("/", "layout");
 }
 
-export async function askQuestion(formData: FormData) {
+export type AskState = { status?: "SENT" | "DRAFT" | "ESCALATED"; error?: string; at?: number };
+
+export async function askQuestion(_prev: AskState, formData: FormData): Promise<AskState> {
   const s = await requireRole("rep");
   const text = String(formData.get("text") ?? "").trim();
-  if (text.length < 3) return;
+  if (text.length < 3) return { error: "Type a question first" };
   const company = await db.company.findUniqueOrThrow({ where: { id: s.companyId } });
   const { category, answer, model } = await answerQuestion(s.payeeId, text, currentMonth());
   const escalate = category === "missing_credit" || category === "policy";
@@ -143,6 +147,7 @@ export async function askQuestion(formData: FormData) {
     data: { companyId: s.companyId, payeeId: s.payeeId, text, category, draft: answer, answer: status === "SENT" || escalate ? answer : null, status, model, answeredAt: status === "SENT" ? new Date() : null, answeredBy: status === "SENT" ? "Plan Explainer (auto-sent)" : null },
   });
   revalidatePath("/", "layout");
+  return { status, at: Date.now() };
 }
 
 export async function sendAnswer(formData: FormData) {

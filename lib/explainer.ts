@@ -82,12 +82,38 @@ export async function answerQuestion(payeeId: string, text: string, month: Month
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
         max_tokens: 1500,
         system:
-          "You are Milkcrate's Plan Explainer, answering a sales rep's question about their commission. Every dollar amount or percentage you write must appear verbatim in FACTS: never add, subtract, estimate or derive a new number. If the rep asks about a month whose statement is in pendingStatement, say it is preliminary and not yet approved. Never promise a payout change. For a missing deal, wrong number or policy exception, tell the rep a ticket is open and a Milkcrate specialist will reply here before the close is approved; don't ask them to contact anyone. Be brief, warm and specific: under 120 words, plain text with no markdown. Reply as JSON: {\"category\": \"explain\"|\"what_if\"|\"missing_credit\"|\"policy\", \"answer\": string}. Use what_if only if FACTS.whatIf is present; if the rep asked a what-if without an amount, ask for the deal size.",
+          "You are Milkcrate's Plan Explainer, answering a sales rep's question about their commission. Every dollar amount or percentage you write must appear verbatim in FACTS: never add, subtract, estimate or derive a new number. If the rep asks about a month whose statement is in pendingStatement, say it is preliminary and not yet approved. Never promise a payout change. For a missing deal, wrong number or policy exception, tell the rep a ticket is open and a Milkcrate specialist will reply here before the close is approved; don't ask them to contact anyone. Be brief, warm and specific: under 120 words, plain text with no markdown. Always send your reply by calling the reply tool exactly once. Use category what_if only if FACTS.whatIf is present; if the rep asked a what-if without an amount, ask for the deal size.",
+        tools: [
+          {
+            name: "reply",
+            description: "Send the reply to the rep",
+            input_schema: {
+              type: "object",
+              properties: {
+                category: { type: "string", enum: ["explain", "what_if", "missing_credit", "policy"] },
+                answer: { type: "string", description: "Plain-text reply to the rep" },
+              },
+              required: ["category", "answer"],
+            },
+          },
+        ],
+        tool_choice: { type: "auto" },
         messages: [{ role: "user", content: `QUESTION: ${text}\n\nFACTS:\n${JSON.stringify(facts, null, 2)}` }],
       });
-      const out = res.content.map((c) => (c.type === "text" ? c.text : "")).join("");
-      const parsed = JSON.parse(out.slice(out.indexOf("{"), out.lastIndexOf("}") + 1)) as { category: Category; answer: string };
-      if (parsed.answer) {
+      const block = res.content.find((c) => c.type === "tool_use");
+      let parsed = (block && block.type === "tool_use" ? block.input : {}) as { category?: Category; answer?: string };
+      if (!parsed.answer) {
+        const text = res.content.map((c) => (c.type === "text" ? c.text : "")).join("");
+        const m = text.match(/\{[\s\S]*?"answer"\s*:\s*"(?:[^"\\]|\\.)*"[\s\S]*?\}/);
+        if (m) {
+          try {
+            parsed = JSON.parse(m[0]);
+          } catch {
+            parsed = {};
+          }
+        }
+      }
+      if (parsed.answer && parsed.category) {
         answer = parsed.answer;
         if (["explain", "what_if", "missing_credit", "policy"].includes(parsed.category) && !(parsed.category === "what_if" && !wi)) category = parsed.category;
         model = res.model;
@@ -108,6 +134,7 @@ type Facts = Record<string, unknown> & {
   earnedThisMonthSoFar: string;
   thisMonthLines: string[];
   lastStatement: { month: string; total: string; lines: string[] } | null;
+  pendingStatement: { month: string; total: string } | null;
   statementBefore: { month: string; total: string; dealCount: number } | null;
   planTiers: string[];
   whatIf: { dealAmount: string; extraPayout: string; attainmentBefore: string; attainmentAfter: string; breakdown: string[] } | null;
@@ -129,7 +156,9 @@ function fallbackAnswer(category: Category, f: Facts, crm: string, amount: numbe
     `For ${f.quarter} you've booked ${f.bookedThisQuarter} against a ${f.quotaThisQuarter} quota (${f.attainment}), so new bookings currently pay ${f.currentMultiplier}x your base rate.`,
     `So far in ${f.month} you've earned ${f.earnedThisMonthSoFar}.`,
   ];
-  if (f.lastStatement && f.statementBefore) {
+  if (f.pendingStatement && f.lastStatement) {
+    parts.push(`Your ${f.pendingStatement.month} statement is preliminary (still in review): ${f.pendingStatement.total}, compared with ${f.lastStatement.total} for ${f.lastStatement.month}. Payouts follow the deals closed in each month; open the preview to see every deal and rate.`);
+  } else if (f.lastStatement && f.statementBefore) {
     parts.push(`Your ${f.lastStatement.month} statement paid ${f.lastStatement.total}, compared with ${f.statementBefore.total} in ${f.statementBefore.month}. Payouts follow the deals closed in each month, and your statement lists every deal with its rate.`);
   }
   parts.push(`Your plan: ${f.planTiers.join("; ")}.`);

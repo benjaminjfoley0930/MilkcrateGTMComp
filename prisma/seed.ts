@@ -99,7 +99,7 @@ function emailOf(name: string, slug: string) {
 async function seedCompany(spec: CompanySpec) {
   const rand = rng(spec.seed);
   const company = await db.company.create({
-    data: { slug: spec.slug, name: spec.name, crm: spec.crm, payrollProvider: spec.payroll, approverName: spec.approver[0], approverEmail: spec.approver[1] },
+    data: { slug: spec.slug, name: spec.name, crm: spec.crm, payrollProvider: spec.payroll, approverName: spec.approver[0], approverEmail: spec.approver[1], autoSendAnswers: Boolean(spec.injectIssues) },
   });
   const managers: Payee[] = [];
   for (const [i, m] of spec.managers.entries()) {

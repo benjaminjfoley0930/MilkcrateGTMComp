@@ -66,19 +66,7 @@ export function StatusBadge({ status }: { status: string }) {
   return <Badge tone={STATUS_TONE[status] ?? "gray"}>{STATUS_LABEL[status] ?? status}</Badge>;
 }
 
-export function Button({ children, variant = "primary", ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
-  const v =
-    variant === "primary"
-      ? "bg-stone-900 text-white hover:bg-stone-700 disabled:bg-stone-300"
-      : variant === "danger"
-        ? "border border-red-200 bg-white text-red-700 hover:bg-red-50"
-        : "border border-stone-300 bg-white text-stone-800 hover:bg-stone-50 disabled:text-stone-500";
-  return (
-    <button {...rest} className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${v} ${rest.className ?? ""}`}>
-      {children}
-    </button>
-  );
-}
+export { Button } from "./button";
 
 export function Th({ children, right }: { children?: ReactNode; right?: boolean }) {
   return <th className={`border-b border-stone-200 px-3 py-2 text-xs font-medium text-stone-600 ${right ? "text-right" : "text-left"}`}>{children}</th>;

@@ -5,9 +5,9 @@ import { liveCalc } from "@/lib/close";
 import { currentMonth, today } from "@/lib/clock";
 import { describeTiers, monthLabel, quarterOf, lastDayOf } from "@/lib/engine";
 import { dateLabel, pct, usd } from "@/lib/format";
-import { Bar, Button, Card, PageTitle, Stat, StatusBadge, Td, Th } from "@/components/ui";
+import { Bar, Card, PageTitle, Stat, StatusBadge, Td, Th } from "@/components/ui";
 import { WhatIf } from "@/components/what-if";
-import { askQuestion } from "@/app/actions";
+import { AskForm } from "@/components/ask-form";
 
 export default async function RepPortal() {
   const s = await requireRole("rep");
@@ -72,10 +72,7 @@ export default async function RepPortal() {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Ask about your pay">
-          <form action={askQuestion} className="space-y-2">
-            <textarea name="text" rows={3} required placeholder='e.g. "Why was my last check lower?" or "What if I close Acme at $40K?"' className="w-full rounded-md border border-stone-300 p-2 text-sm" />
-            <Button>Ask</Button>
-          </form>
+          <AskForm />
           <ul className="mt-4 space-y-3">
             {questions.map((qq) => (
               <li key={qq.id} className="rounded-md bg-stone-50 p-3 text-sm">
