@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PayeeRole {
+  REP
+  MANAGER
+}
+
+enum PeriodStatus {
+  OPEN
+  IN_REVIEW
+  SIGNED_OFF
+  APPROVED
+  EXPORTED
+}
+
+enum ExceptionStatus {
+  OPEN
+  RESOLVED
+}
+
+enum QuestionStatus {
+  DRAFT
+  SENT
+  ESCALATED
+  RESOLVED
+}
+
+model Company {
+  id              String          @id @default(cuid())
+  slug            String          @unique
+  name            String
+  crm             String          @default("Salesforce")
+  payrollProvider String          @default("Gusto")
+  approverName    String
+  approverEmail   String
+  feeRate         Float           @default(0.025)
+  autoSendAnswers Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  payees          Payee[]
+  plans           PlanVersion[]
+  deals           Deal[]
+  periods         Period[]
+  adjustments     Adjustment[]
+  questions       Question[]
+  auditEvents     AuditEvent[]
+}
+
+model Payee {
+  id                   String        @id @default(cuid())
+  companyId            String
+  company              Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  externalId           String
+  name                 String
+  email                String
+  title                String
+  role                 PayeeRole
+  managerId            String?
+  manager              Payee?        @relation("Team", fields: [managerId], references: [id])
+  reports              Payee[]       @relation("Team")
+  startDate            String
+  endDate              String?
+  baseSalary           Float
+  targetVariableAnnual Float
+  quarterlyQuota       Float
+  deals                Deal[]
+  lines                PayoutLine[]
+  adjustments          Adjustment[]
+  questions            Question[]
+
+  @@unique([companyId, externalId])
+}
+
+model PlanVersion {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  version       Int
+  template      String
+  effectiveFrom String
+  config        Json
+  signedAt      DateTime?
+  createdAt     DateTime @default(now())
+  periods       Period[]
+
+  @@unique([companyId, version])
+}
+
+model Deal {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  externalId  String
+  name        String
+  account     String
+  ownerId     String?
+  owner       Payee?   @relation(fields: [ownerId], references: [id])
+  ownerLabel  String?
+  amount      Float
+  closeDate   String
+  termMonths  Int?
+  excluded    Boolean  @default(false)
+  stage       String   @default("closed_won")
+  source      String   @default("crm")
+  createdAt   DateTime @default(now())
+  lines       PayoutLine[]
+
+  @@index([companyId, closeDate])
+}
+
+model Period {
+  id               String          @id @default(cuid())
+  companyId        String
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  month            String
+  status           PeriodStatus    @default(OPEN)
+  planVersionId    String?
+  planVersion      PlanVersion?    @relation(fields: [planVersionId], references: [id])
+  calculatedAt     DateTime?
+  signedOffBy      String?
+  signedOffAt      DateTime?
+  approvedBy       String?
+  approvedAt       DateTime?
+  exportedAt       DateTime?
+  totalPayout      Float           @default(0)
+  lines            PayoutLine[]
+  exceptions       CloseException[]
+
+  @@unique([companyId, month])
+}
+
+model PayoutLine {
+  id          String   @id @default(cuid())
+  periodId    String
+  period      Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  payeeId     String
+  payee       Payee    @relation(fields: [payeeId], references: [id])
+  dealId      String?
+  deal        Deal?    @relation(fields: [dealId], references: [id])
+  type        String
+  amount      Float
+  description String
+  trace       Json
+}
+
+model CloseException {
+  id         String          @id @default(cuid())
+  periodId   String
+  period     Period          @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  kind       String
+  severity   String
+  message    String
+  dealId     String?
+  payeeId    String?
+  status     ExceptionStatus @default(OPEN)
+  resolution String?
+  resolvedBy String?
+  resolvedAt DateTime?
+}
+
+model Adjustment {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payeeId    String
+  payee      Payee    @relation(fields: [payeeId], references: [id])
+  month      String
+  amount     Float
+  type       String
+  reason     String
+  approved   Boolean  @default(false)
+  createdBy  String
+  createdAt  DateTime @default(now())
+}
+
+model Question {
+  id          String         @id @default(cuid())
+  companyId   String
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payeeId     String
+  payee       Payee          @relation(fields: [payeeId], references: [id])
+  text        String
+  category    String
+  draft       String
+  answer      String?
+  status      QuestionStatus @default(DRAFT)
+  model       String
+  createdAt   DateTime       @default(now())
+  answeredAt  DateTime?
+  answeredBy  String?
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actor     String
+  action    String
+  detail    String
+  data      Json?
+  at        DateTime @default(now())
+}
