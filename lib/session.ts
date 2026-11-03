@@ -46,6 +46,13 @@ export async function getSession(): Promise<Session | null> {
 export async function requireRole<R extends Session["role"]>(...roles: R[]): Promise<Extract<Session, { role: R }>> {
   const s = await getSession();
   if (!s || !roles.includes(s.role as R)) redirect("/");
+  if (s.role !== "operator") {
+    const { db } = await import("./db");
+    const exists = s.payeeId
+      ? await db.payee.count({ where: { id: s.payeeId, companyId: s.companyId } })
+      : await db.company.count({ where: { id: s.companyId } });
+    if (!exists) redirect("/?expired=1");
+  }
   return s as Extract<Session, { role: R }>;
 }
 

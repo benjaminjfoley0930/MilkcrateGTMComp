@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { companyBySlug } from "@/lib/queries";
-import { PLAN_TEMPLATES, addMonths, backtest, describeTiers, monthLabel, planSchema, type DealInput, type PayeeInput } from "@/lib/engine";
+import { MEASURE_LABEL, PLAN_TEMPLATES, addMonths, backtest, describeTiers, monthLabel, planSchema, type DealInput, type PayeeInput } from "@/lib/engine";
 import { currentMonth } from "@/lib/clock";
 import { dateLabel, pct, usd } from "@/lib/format";
 import { Badge, Button, Card, PageTitle, Td, Th } from "@/components/ui";
@@ -15,19 +15,28 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
   const [versions, payeeRows, dealRows] = await Promise.all([
     db.planVersion.findMany({ where: { companyId: company.id }, orderBy: { version: "desc" } }),
     db.payee.findMany({ where: { companyId: company.id } }),
-    db.deal.findMany({ where: { companyId: company.id } }),
+    db.deal.findMany({ where: { companyId: company.id, stage: "closed_won" } }),
   ]);
   const payees: PayeeInput[] = payeeRows.map((p) => ({ id: p.id, name: p.name, role: p.role, managerId: p.managerId, startDate: p.startDate, endDate: p.endDate, targetVariableAnnual: p.targetVariableAnnual, quarterlyQuota: p.quarterlyQuota }));
   const deals: DealInput[] = dealRows.map((d) => ({ id: d.id, externalId: d.externalId, name: d.name, account: d.account, ownerId: d.ownerId, amount: d.amount, closeDate: d.closeDate, termMonths: d.termMonths, excluded: d.excluded }));
   const end = addMonths(currentMonth(), -1);
   const months = Array.from({ length: 12 }, (_, i) => addMonths(end, i - 11));
   const target = payees.reduce((s, p) => s + p.targetVariableAnnual, 0);
-  const models = Object.entries(PLAN_TEMPLATES).map(([key, t]) => {
+  const models = Object.entries(PLAN_TEMPLATES).filter(([key]) => key !== "usage").map(([key, t]) => {
     const b = backtest(t.config, months, payees, deals);
     const reps = b.byPayee.filter((x) => payees.find((p) => p.id === x.payeeId)?.role === "REP" && x.target > 0);
     const ratios = reps.map((r) => r.total / r.target).sort((a, b) => a - b);
-    return { key, t, b, atTarget: reps.filter((r) => r.total >= r.target).length, reps: reps.length, min: ratios[0] ?? 0, max: ratios[ratios.length - 1] ?? 0 };
+    const mean = b.totalPayout / b.months.length;
+    const volatility = Math.sqrt(b.months.reduce((a, m) => a + (m.payout - mean) ** 2, 0) / b.months.length) / mean;
+    return { key, t, b, atTarget: reps.filter((r) => r.total >= r.target).length, reps: reps.length, min: ratios[0] ?? 0, max: ratios[ratios.length - 1] ?? 0, volatility };
   });
+  const current = models.find((m) => m.key === versions[0]?.template) ?? models[0];
+  const pickBy = (score: (m: (typeof models)[number]) => number) => [...models].sort((a, b) => score(a) - score(b))[0];
+  const recs = [
+    { goal: "Manage cash", m: pickBy((m) => (m.atTarget < current.atTarget - 1 ? Infinity : m.b.totalPayout)), why: (m: (typeof models)[number]) => `Lowest modeled cost that keeps ${m.atTarget} of ${m.reps} reps at or above target pay.` },
+    { goal: "Reward top performers", m: pickBy((m) => -m.max), why: (m: (typeof models)[number]) => `Best rep earns ${pct(m.max)} of target; steeper pay for overperformance.` },
+    { goal: "Predictable monthly cost", m: pickBy((m) => m.volatility), why: (m: (typeof models)[number]) => `Smallest month-to-month swing in payouts (${pct(m.volatility)} variation).` },
+  ];
   const maxMonth = Math.max(...models.flatMap((m) => m.b.months.map((x) => x.payout)));
   const active = versions[0];
   const activeConfig = active ? planSchema.parse(active.config) : null;
@@ -42,7 +51,7 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
         <Card title={<span>Active plan: v{active.version} · {PLAN_TEMPLATES[active.template]?.label ?? active.template}</span>} action={<Badge tone={active.signedAt ? "green" : "amber"}>{active.signedAt ? `Signed ${dateLabel(active.signedAt)}` : "Awaiting rep sign-off"}</Badge>}>
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-3 text-sm">
-              <div><div className="text-xs font-medium text-stone-600">Measure</div>New ARR, credited on closed-won, quarterly quota, paid monthly</div>
+              <div><div className="text-xs font-medium text-stone-600">Measure</div>{MEASURE_LABEL[activeConfig.measure]}; quarterly quota, paid monthly</div>
               <div><div className="text-xs font-medium text-stone-600">Rate</div>Base rate = quarterly target variable / quarterly quota</div>
               <div><div className="text-xs font-medium text-stone-600">Tiers</div><ul className="list-disc pl-5">{describeTiers(activeConfig).map((t) => <li key={t}>{t}</li>)}</ul></div>
               <div><div className="text-xs font-medium text-stone-600">Cap</div>{activeConfig.capAttainment ? `${pct(activeConfig.capAttainment)} of quota` : "Uncapped"}</div>
@@ -98,6 +107,26 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
           <input name="effectiveFrom" defaultValue={`${addMonths(currentMonth(), 1)}-01`} className="w-32 rounded-md border border-stone-300 px-2 py-1.5" />
           <Button variant="secondary">Create version</Button>
         </form>
+      </Card>
+
+      <Card title="Recommended for next year's plan">
+        <table className="w-full text-sm">
+          <thead><tr><Th>If your goal is</Th><Th>Recommend</Th><Th right>Cost vs current</Th><Th>Why</Th></tr></thead>
+          <tbody>
+            {recs.map((r) => {
+              const delta = r.m.b.totalPayout - current.b.totalPayout;
+              return (
+                <tr key={r.goal}>
+                  <Td className="font-medium">{r.goal}</Td>
+                  <Td>{r.m.t.label}{r.m.key === current.key && <span className="ml-1"><Badge tone="green">Current plan</Badge></span>}</Td>
+                  <Td right>{Math.abs(delta) < 1 ? "No change" : `${delta > 0 ? "+" : "−"}${usd(Math.abs(delta))} (${delta > 0 ? "+" : "−"}${pct(Math.abs(delta) / current.b.totalPayout, 1)})`}</Td>
+                  <Td className="text-stone-700">{r.why(r.m)}</Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="mt-2 text-xs text-stone-600">Each option is back-tested on the same 12 months of deals in seconds. Selling on usage? The {PLAN_TEMPLATES.usage.label} template credits consumption as it&apos;s retired, once usage data is connected.</p>
       </Card>
 
       <Card title="Version history">

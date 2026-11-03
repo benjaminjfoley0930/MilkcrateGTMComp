@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/session";
-import { liveCalc } from "@/lib/close";
+import { forecastQuarter, liveCalc } from "@/lib/close";
+import { benchmark } from "@/lib/benchmarks";
 import { currentMonth, today } from "@/lib/clock";
 import { closeMonth, slaState } from "@/lib/queries";
 import { monthLabel, quarterOf, lastDayOf } from "@/lib/engine";
@@ -32,6 +33,12 @@ export default async function LeaderDashboard() {
   const prev = await db.period.findFirst({ where: { companyId: company.id, month: { lt: cm } }, orderBy: { month: "desc" } });
   const pendingAdj = await db.adjustment.findMany({ where: { companyId: company.id, approved: false }, include: { payee: true } });
   const sla = slaState(period, cm);
+  const fc = await forecastQuarter(company.id, month);
+  const fcRows = fc.rows.filter((r) => visible.has(r.payeeId));
+  const fcTot = { closed: fcRows.reduce((a, r) => a + r.closed, 0), commit: fcRows.reduce((a, r) => a + r.commit, 0), best: fcRows.reduce((a, r) => a + r.best, 0) };
+  const fcBudget = payees.filter((p) => visible.has(p.id) && !p.endDate).reduce((a, p) => a + p.targetVariableAnnual / 4, 0);
+  const bm = await benchmark(company.id);
+  const fmt = (f: string, v: number) => (f === "usd" ? usd(v) : f === "pct" ? pct(v) : f === "pct1" ? pct(v, 1) : `${v.toFixed(1)}x`);
   const largest = period ? [...period.lines.reduce((m, l) => m.set(l.payeeId, (m.get(l.payeeId) ?? 0) + l.amount), new Map<string, number>())].sort((a, b) => b[1] - a[1]).slice(0, 3) : [];
 
   return (
@@ -85,6 +92,50 @@ export default async function LeaderDashboard() {
             })}
           </tbody>
         </table>
+      </Card>
+
+      <Card title={`${fc.quarter} payout forecast from open pipeline`}>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <Stat label="Earned on closed deals" value={usd(fcTot.closed)} sub={`Quarter budget ${usd(fcBudget)}`} />
+          <Stat label="If commit closes" value={usd(fcTot.commit)} sub={`+${usd(fcTot.commit - fcTot.closed)} · ${pct(fcTot.commit / fcBudget)} of budget`} tone={fcTot.commit > fcBudget * 1.15 ? "warn" : undefined} />
+          <Stat label="If best case closes too" value={usd(fcTot.best)} sub={`+${usd(fcTot.best - fcTot.closed)} · ${pct(fcTot.best / fcBudget)} of budget`} tone={fcTot.best > fcBudget * 1.15 ? "warn" : undefined} />
+          <Stat label="Open pipeline this quarter" value={usd(fc.pipeline.commit + fc.pipeline.best)} sub={`${usd(fc.pipeline.commit)} commit · ${usd(fc.pipeline.best)} best case`} />
+        </div>
+        <table className="mt-4 w-full text-sm">
+          <thead><tr><Th>Payee</Th><Th right>Closed: earned (attainment)</Th><Th right>+ Commit</Th><Th right>+ Best case</Th></tr></thead>
+          <tbody>
+            {fcRows.sort((a, b) => b.best - a.best).map((r) => (
+              <tr key={r.payeeId}>
+                <Td>{r.name}{r.role === "MANAGER" && <span className="ml-1 text-xs text-stone-600">(override)</span>}</Td>
+                <Td right>{usd(r.closed)} <span className="text-xs text-stone-600">({pct(r.attClosed)})</span></Td>
+                <Td right>{usd(r.commit)} <span className="text-xs text-stone-600">({pct(r.attCommit)})</span></Td>
+                <Td right>{usd(r.best)} <span className="text-xs text-stone-600">({pct(r.attBest)})</span></Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-2 text-xs text-stone-600">Runs the signed plan on {company.crm} pipeline (commit and best-case stages) as if every deal closes on its expected date. Accelerators and kickers included.</p>
+      </Card>
+
+      <Card title={`How your comp compares · anonymous cohort of ${bm.cohortSize} Milkcrate customers`}>
+        <table className="w-full text-sm">
+          <thead><tr><Th>Metric</Th><Th right>{company.name}</Th><Th right>Cohort median</Th><Th right>Cohort middle 50%</Th><Th /></tr></thead>
+          <tbody>
+            {bm.rows.map((r) => {
+              const flag = r.you > r.p75 ? "Above cohort" : r.you < r.p25 ? "Below cohort" : null;
+              return (
+                <tr key={r.key}>
+                  <Td>{r.label}</Td>
+                  <Td right className="font-medium">{fmt(r.format, r.you)}</Td>
+                  <Td right>{fmt(r.format, r.median)}</Td>
+                  <Td right>{fmt(r.format, r.p25)} to {fmt(r.format, r.p75)}</Td>
+                  <Td>{flag && <Badge tone={flag === "Above cohort" ? "amber" : "blue"}>{flag}</Badge>}</Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="mt-2 text-xs text-stone-600">Trailing 12 months, refreshed with every close. Cohort companies are never named. In this prototype the cohort is the other fictional customers.</p>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">

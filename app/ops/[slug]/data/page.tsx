@@ -54,7 +54,7 @@ export default async function DataPage({ params, searchParams }: { params: Promi
           <tbody>
             {deals.map((d) => (
               <tr key={d.id} className={d.excluded ? "text-stone-500 line-through" : ""}>
-                <Td><div className="font-medium">{d.name}</div><div className="text-xs text-stone-600">{d.externalId}</div></Td>
+                <Td><div className="font-medium">{d.name}</div><div className="text-xs text-stone-600">{d.externalId} {d.stage !== "closed_won" && <Badge tone="blue">{d.stage === "commit" ? "Commit" : "Best case"}</Badge>}</div></Td>
                 <Td>{d.owner?.name ?? <Badge tone="red">{d.ownerLabel ?? "Unknown"}</Badge>}</Td>
                 <Td>{dateLabel(d.closeDate)}</Td>
                 <Td right>{usd(d.amount)}</Td>

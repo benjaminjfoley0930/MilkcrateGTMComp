@@ -15,7 +15,7 @@ export const kickerSchema = z.object({
 export const planSchema = z
   .object({
     name: z.string().min(1),
-    measure: z.literal("new_arr"),
+    measure: z.enum(["new_arr", "usage_revenue"]),
     quotaPeriod: z.literal("quarter"),
     payoutFrequency: z.literal("month"),
     tiers: z.array(tierSchema).min(1),
@@ -88,6 +88,26 @@ export const PLAN_TEMPLATES: Record<string, { label: string; summary: string; co
       checks: baseChecks,
     },
   },
+  usage: {
+    label: "Usage-based (AI / token)",
+    summary: "Credit on usage revenue as customers consume it (tokens, credits, API calls), not on bookings. 1x to quota, 1.5x above.",
+    config: {
+      name: "Usage-based AE plan",
+      measure: "usage_revenue",
+      quotaPeriod: "quarter",
+      payoutFrequency: "month",
+      tiers: [
+        { upTo: 1, multiplier: 1 },
+        { upTo: null, multiplier: 1.5 },
+      ],
+      capAttainment: null,
+      kickers: [],
+      ramp: [0.33, 0.66],
+      managerOverride: { enabled: true },
+      clawbackDays: 0,
+      checks: baseChecks,
+    },
+  },
   capped: {
     label: "Flat and capped",
     summary: "1x to quota, 1.25x above, capped at 200%. Most predictable cost.",
@@ -121,3 +141,8 @@ export function describeTiers(plan: PlanConfig): string[] {
     return label;
   });
 }
+
+export const MEASURE_LABEL: Record<PlanConfig["measure"], string> = {
+  new_arr: "New ARR, credited on closed-won",
+  usage_revenue: "Usage revenue retired against quota as customers consume (tokens, credits, API calls)",
+};

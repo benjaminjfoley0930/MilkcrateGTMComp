@@ -32,7 +32,7 @@ export async function buildCalcInput(companyId: string, month: Month): Promise<C
   const { version, config } = await activePlan(companyId, month);
   const [payees, deals, adjustments] = await Promise.all([
     db.payee.findMany({ where: { companyId }, orderBy: { name: "asc" } }),
-    db.deal.findMany({ where: { companyId } }),
+    db.deal.findMany({ where: { companyId, stage: "closed_won" } }),
     db.adjustment.findMany({ where: { companyId, approved: true, month } }),
   ]);
   const q = quarterOf(month);
@@ -87,6 +87,38 @@ export async function buildCalcInput(companyId: string, month: Month): Promise<C
       (a): AdjustmentInput => ({ id: a.id, payeeId: a.payeeId, month: a.month, amount: a.amount, type: a.type, reason: a.reason }),
     ),
     previouslyPaidQtd,
+  };
+}
+
+export type ForecastRow = { payeeId: string; name: string; role: string; quota: number; closed: number; commit: number; best: number; attClosed: number; attCommit: number; attBest: number };
+
+/** Quarter-end payout scenarios: closed deals only, plus commit, plus best case. */
+export async function forecastQuarter(companyId: string, month: Month) {
+  const q = quarterOf(month);
+  const end = q.months[2];
+  const input = await buildCalcInput(companyId, end);
+  const pipeline = await db.deal.findMany({
+    where: { companyId, stage: { in: ["commit", "best_case"] }, excluded: false, closeDate: { gte: `${q.months[0]}-01`, lte: lastDayOf(end) } },
+  });
+  const toInput = (d: (typeof pipeline)[number]): DealInput => ({ id: d.id, externalId: d.externalId, name: d.name, account: d.account, ownerId: d.ownerId, ownerLabel: d.ownerLabel, amount: d.amount, closeDate: d.closeDate, termMonths: d.termMonths });
+  const commit = pipeline.filter((d) => d.stage === "commit").map(toInput);
+  const best = pipeline.filter((d) => d.stage === "best_case").map(toInput);
+  const run = (deals: DealInput[]) => calculate({ ...input, month: end, previouslyPaidQtd: undefined, deals: [...input.deals, ...deals] });
+  const [a, b, c] = [run([]), run(commit), run([...commit, ...best])];
+  const rows: ForecastRow[] = a.summaries.map((s) => {
+    const p = input.payees.find((x) => x.id === s.payeeId)!;
+    const sb = b.summaries.find((x) => x.payeeId === s.payeeId)!;
+    const sc = c.summaries.find((x) => x.payeeId === s.payeeId)!;
+    return { payeeId: s.payeeId, name: p.name, role: p.role, quota: s.quota, closed: s.earnedQtd, commit: sb.earnedQtd, best: sc.earnedQtd, attClosed: s.attainment, attCommit: sb.attainment, attBest: sc.attainment };
+  });
+  const budget = input.payees.filter((p) => !p.endDate).reduce((t, p) => t + p.targetVariableAnnual / 4, 0);
+  const sum = (k: "closed" | "commit" | "best") => rows.reduce((t, r) => t + r[k], 0);
+  return {
+    quarter: q.label,
+    rows,
+    totals: { closed: sum("closed"), commit: sum("commit"), best: sum("best") },
+    pipeline: { commit: commit.reduce((t, d) => t + d.amount, 0), best: best.reduce((t, d) => t + d.amount, 0), count: pipeline.length },
+    budget,
   };
 }
 

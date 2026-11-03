@@ -106,6 +106,7 @@ model Deal {
   closeDate   String
   termMonths  Int?
   excluded    Boolean  @default(false)
+  stage       String   @default("closed_won")
   source      String   @default("crm")
   createdAt   DateTime @default(now())
   lines       PayoutLine[]

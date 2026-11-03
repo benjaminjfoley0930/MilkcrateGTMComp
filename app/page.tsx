@@ -16,8 +16,8 @@ function Who({ kind, id, label, sub, needsCode }: { kind: string; id?: string; l
   );
 }
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; expired?: string }> }) {
+  const { error, expired } = await searchParams;
   const needsCode = Boolean(process.env.DEMO_ACCESS_CODE);
   const company = await db.company.findFirst({ where: { slug: "northwind" }, include: { payees: { orderBy: [{ role: "desc" }, { name: "asc" }] } } });
   return (
@@ -28,6 +28,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
           Milkcrate designs your comp plan, calculates every payout, answers every rep question, and hands you an approved payroll file each month. This prototype runs on a fictional customer, Northwind Analytics (14 AEs, 2 managers).
         </p>
       </div>
+      {expired && <div className="max-w-2xl rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">The demo data was reset. Pick a user again to continue.</div>}
       {needsCode && (
         <div className="max-w-sm">
           <label className="text-sm font-medium" htmlFor="code">Access code</label>

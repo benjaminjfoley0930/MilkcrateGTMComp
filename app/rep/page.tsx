@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/session";
-import { liveCalc } from "@/lib/close";
+import { forecastQuarter, liveCalc } from "@/lib/close";
 import { currentMonth, today } from "@/lib/clock";
 import { describeTiers, monthLabel, quarterOf, lastDayOf } from "@/lib/engine";
 import { dateLabel, pct, usd } from "@/lib/format";
@@ -28,6 +28,8 @@ export default async function RepPortal() {
   const payee = await db.payee.findUniqueOrThrow({ where: { id: s.payeeId }, include: { company: true } });
   const questions = await db.question.findMany({ where: { payeeId: s.payeeId }, orderBy: { createdAt: "desc" }, take: 6 });
   const deals = await db.deal.findMany({ where: { id: { in: lines.map((l) => l.dealId).filter((x): x is string => Boolean(x)) } } });
+  const fc = await forecastQuarter(s.companyId, month);
+  const myFc = fc.rows.find((r) => r.payeeId === s.payeeId);
   const q = quarterOf(month);
   const qStart = new Date(`${q.months[0]}-01T00:00:00Z`).getTime();
   const qEnd = new Date(`${lastDayOf(q.months[2])}T23:59:59Z`).getTime();
@@ -44,6 +46,9 @@ export default async function RepPortal() {
       </div>
       <Card title={`Quota progress, ${result.quarter}`}>
         <Bar value={me?.attainment ?? 0} />
+        {myFc && myFc.commit > myFc.closed && (
+          <p className="mt-3 text-sm">If your commit deals close as forecast, you&apos;ll finish {fc.quarter} at <span className="font-semibold">{pct(myFc.attCommit)}</span> and earn <span className="font-semibold">{usd(myFc.commit)}</span> for the quarter{myFc.best > myFc.commit ? <> ({usd(myFc.best)} with best case)</> : null}.</p>
+        )}
         <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-stone-700">{describeTiers(input.plan).map((t) => <li key={t}>{t}</li>)}</ul>
       </Card>
       <div className="grid gap-4 md:grid-cols-2">

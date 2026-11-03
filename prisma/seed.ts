@@ -34,6 +34,7 @@ type CompanySpec = {
   reps: { name: string; team: number; start: string; end?: string; perf: number }[];
   octStatus: "IN_REVIEW" | "SIGNED_OFF" | "APPROVED";
   injectIssues?: boolean;
+  comp?: { base: number; tv: number; quota: number };
 };
 
 const companies: CompanySpec[] = [
@@ -76,6 +77,7 @@ const companies: CompanySpec[] = [
     approver: ["Sam Ortiz (Controller)", "sam@harbor.example"],
     seed: 21,
     octStatus: "APPROVED",
+    comp: { base: 80_000, tv: 70_000, quota: 240_000 },
     managers: [{ name: "Elena Rossi", title: "VP Sales" }],
     reps: ["Aiden Clark", "Bella Hughes", "Caleb Price", "Daisy Ward", "Eli Turner", "Fiona Reed", "Gavin Scott", "Hannah Cruz", "Isaac Long", "Jade Morgan", "Kai Bishop", "Lena Fox", "Milo Grant", "Nora Hale"].map((name, i) => ({ name, team: 0, start: "2024-0" + ((i % 9) + 1) + "-01", perf: 0.7 + ((i * 37) % 60) / 100 })),
   },
@@ -87,8 +89,33 @@ const companies: CompanySpec[] = [
     approver: ["Jordan Blake (CRO)", "jordan@copperline.example"],
     seed: 42,
     octStatus: "SIGNED_OFF",
+    comp: { base: 70_000, tv: 80_000, quota: 280_000 },
     managers: [{ name: "Theo Walsh", title: "Head of Sales" }],
     reps: ["Abby Dunn", "Blake Ford", "Cora Lane", "Dev Mehta", "Eva Stone", "Finn Hart", "Gia Romano", "Hugo Banks", "Ivy Chen", "Jack Rowe", "Kira Wolfe", "Leo Marsh"].map((name, i) => ({ name, team: 0, start: "2024-1" + (i % 3) + "-01", perf: 0.75 + ((i * 53) % 55) / 100 })),
+  },
+  {
+    slug: "pinecrest",
+    name: "Pinecrest Data",
+    crm: "HubSpot",
+    payroll: "Gusto",
+    approver: ["Riley Chen (CFO)", "riley@pinecrest.example"],
+    seed: 77,
+    octStatus: "APPROVED",
+    comp: { base: 90_000, tv: 90_000, quota: 300_000 },
+    managers: [{ name: "Morgan Diaz", title: "VP Sales" }],
+    reps: ["Ari Cole", "Bea Lin", "Cal Ross", "Dee Park", "Eli Shaw", "Fay Wong", "Gus Hill", "Hal Kerr", "Ida Moss", "Jon Pike"].map((name, i) => ({ name, team: 0, start: "2024-0" + ((i % 8) + 1) + "-15", perf: 0.65 + ((i * 41) % 70) / 100 })),
+  },
+  {
+    slug: "atlas",
+    name: "Atlas Security",
+    crm: "Salesforce",
+    payroll: "Rippling",
+    approver: ["Casey Ford (Controller)", "casey@atlas.example"],
+    seed: 99,
+    octStatus: "APPROVED",
+    comp: { base: 95_000, tv: 60_000, quota: 220_000 },
+    managers: [{ name: "Jamie Hart", title: "Director of Sales" }],
+    reps: ["Kim Ames", "Lou Byrd", "Max Cote", "Ned Dyer", "Ola Egan", "Pat Finn", "Quinn Gale", "Rae Hood", "Sid Ivey", "Tia Jett", "Uma Kent", "Vic Lowe", "Wes Mund", "Xan Nash", "Yara Orr", "Zed Pugh"].map((name, i) => ({ name, team: 0, start: "2024-1" + (i % 3) + "-01", perf: 0.7 + ((i * 29) % 65) / 100 })),
   },
 ];
 
@@ -98,6 +125,7 @@ function emailOf(name: string, slug: string) {
 
 async function seedCompany(spec: CompanySpec) {
   const rand = rng(spec.seed);
+  const comp = spec.comp ?? { base: 75_000, tv: 75_000, quota: 250_000 };
   const company = await db.company.create({
     data: { slug: spec.slug, name: spec.name, crm: spec.crm, payrollProvider: spec.payroll, approverName: spec.approver[0], approverEmail: spec.approver[1], autoSendAnswers: Boolean(spec.injectIssues) },
   });
@@ -114,7 +142,7 @@ async function seedCompany(spec: CompanySpec) {
     reps.push({
       spec: r,
       row: await db.payee.create({
-        data: { companyId: company.id, externalId: `AE-${String(i + 1).padStart(3, "0")}`, name: r.name, email: emailOf(r.name, spec.slug), title: "Account Executive", role: "REP", managerId: managers[r.team].id, startDate: r.start, endDate: r.end ?? null, baseSalary: 75_000, targetVariableAnnual: 75_000, quarterlyQuota: 250_000 },
+        data: { companyId: company.id, externalId: `AE-${String(i + 1).padStart(3, "0")}`, name: r.name, email: emailOf(r.name, spec.slug), title: "Account Executive", role: "REP", managerId: managers[r.team].id, startDate: r.start, endDate: r.end ?? null, baseSalary: comp.base, targetVariableAnnual: comp.tv, quarterlyQuota: comp.quota },
       }),
     });
   }
@@ -128,7 +156,7 @@ async function seedCompany(spec: CompanySpec) {
     const lastDay = m === OPEN_MONTH ? Number(TODAY.slice(8)) : Number(lastDayOf(m).slice(8));
     for (const { spec: r, row } of reps) {
       if (r.start.slice(0, 7) > m || (r.end && r.end.slice(0, 7) < m)) continue;
-      const target = (250_000 / 3) * r.perf * (0.6 + rand() * 0.8) * (m === OPEN_MONTH ? 0.1 : 1);
+      const target = (comp.quota / 3) * r.perf * (0.6 + rand() * 0.8) * (m === OPEN_MONTH ? 0.1 : 1);
       let booked = 0;
       while (booked < target) {
         const amt = Math.round(Math.min(120_000, Math.max(6_000, Math.exp(Math.log(26_000) + (rand() - 0.5) * 1.4))) / 500) * 500;
@@ -151,6 +179,19 @@ async function seedCompany(spec: CompanySpec) {
       { companyId: company.id, externalId: `OPP-${opp++}`, name: "Tidewater Marine - Platform", account: "Tidewater Marine", ownerId: byName("Ryan Douglas").id, ownerLabel: "Ryan Douglas", amount: 18_500, closeDate: "2026-10-09", termMonths: 12 },
       { companyId: company.id, externalId: `OPP-${opp++}`, name: "Nimbus Cloud - Enterprise tier", account: "Nimbus Cloud", ownerId: byName("Ava Thompson").id, ownerLabel: "Ava Thompson", amount: 185_000, closeDate: "2026-10-28", termMonths: 36 },
     );
+  }
+  if (spec.injectIssues) {
+    for (const { spec: r, row } of reps) {
+      if (r.end) continue;
+      const count = 2 + Math.floor(rand() * 4);
+      for (let i = 0; i < count; i++) {
+        const account = ACCOUNTS[Math.floor(rand() * ACCOUNTS.length)];
+        const m = rand() < 0.5 ? OPEN_MONTH : addMonths(OPEN_MONTH, 1);
+        const day = m === OPEN_MONTH ? 5 + Math.floor(rand() * 25) : 1 + Math.floor(rand() * 30);
+        const amt = Math.round(Math.min(110_000, Math.max(8_000, Math.exp(Math.log(28_000) + (rand() - 0.5) * 1.2))) / 500) * 500;
+        deals.push({ companyId: company.id, externalId: `OPP-${opp++}`, name: `${account} - ${PRODUCTS[Math.floor(rand() * PRODUCTS.length)]}`, account, ownerId: row.id, ownerLabel: row.name, amount: amt, closeDate: `${m}-${String(day).padStart(2, "0")}`, termMonths: rand() < 0.75 ? 12 : 24, stage: rand() < 0.55 ? "commit" : "best_case", source: "crm" });
+      }
+    }
   }
   await db.deal.createMany({ data: deals });
 

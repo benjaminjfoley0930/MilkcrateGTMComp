@@ -204,7 +204,9 @@ export async function importDealsCsv(formData: FormData) {
     const owner = findOwner(ownerLabel);
     if (!owner) unmatched++;
     const term = Number(col(r, "term months", "term", "contract term")) || null;
-    const data = { name: col(r, "name", "opportunity name", "deal name") || externalId, account: col(r, "account", "account name", "company") || "Unknown", ownerId: owner?.id ?? null, ownerLabel, amount, closeDate, termMonths: term, source: "csv" };
+    const stageRaw = col(r, "stage", "forecast category").toLowerCase();
+    const stage = stageRaw.includes("commit") ? "commit" : stageRaw.includes("best") ? "best_case" : "closed_won";
+    const data = { stage, name: col(r, "name", "opportunity name", "deal name") || externalId, account: col(r, "account", "account name", "company") || "Unknown", ownerId: owner?.id ?? null, ownerLabel, amount, closeDate, termMonths: term, source: "csv" };
     const existing = await db.deal.findFirst({ where: { companyId, externalId } });
     if (existing) await db.deal.update({ where: { id: existing.id }, data });
     else await db.deal.create({ data: { ...data, companyId, externalId } });
