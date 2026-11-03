@@ -120,3 +120,14 @@ describe("planSchema", () => {
     expect(planSchema.safeParse(bad).success).toBe(false);
   });
 });
+
+describe("plan measure", () => {
+  it("only credits records that match the plan's measure", () => {
+    const usage = PLAN_TEMPLATES.usage.config;
+    const deals = [deal({ amount: 30_000 }), deal({ amount: 12_000, measure: "usage_revenue" })];
+    const onUsage = calculate({ plan: usage, month: "2026-01", payees: [rep()], deals, adjustments: [] });
+    expect(onUsage.summaries[0].bookingsQtd).toBe(12_000);
+    const onArr = calculate({ plan, month: "2026-01", payees: [rep()], deals, adjustments: [] });
+    expect(onArr.summaries[0].bookingsQtd).toBe(30_000);
+  });
+});

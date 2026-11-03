@@ -23,6 +23,8 @@ export type DealInput = {
   closeDate: string;
   termMonths: number | null;
   excluded?: boolean;
+  /** Which plan measure this record counts toward. Defaults to new_arr (a booking). */
+  measure?: "new_arr" | "usage_revenue";
 };
 
 export type AdjustmentInput = {
@@ -271,7 +273,7 @@ export function calculate(input: CalcInput): CalcResult {
   const { plan, month, payees, adjustments } = input;
   const q = quarterOf(month);
   const monthEnd = lastDayOf(month);
-  const deals = input.deals.filter((d) => !d.excluded);
+  const deals = input.deals.filter((d) => !d.excluded && (d.measure ?? "new_arr") === plan.measure);
   const qDeals = deals.filter((d) => q.months.includes(monthOf(d.closeDate)) && d.closeDate <= monthEnd);
   const repNames = Object.fromEntries(payees.map((p) => [p.id, p.name]));
   const lines: PayoutLine[] = [];

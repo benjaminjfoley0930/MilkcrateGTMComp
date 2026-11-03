@@ -1,16 +1,19 @@
 import { db } from "@/lib/db";
 import { getSession, actorName } from "@/lib/session";
 import { audit } from "@/lib/close";
-import { lastDayOf } from "@/lib/engine";
+import { addBusinessDays, lastDayOf } from "@/lib/engine";
+import { today } from "@/lib/clock";
 
 const FORMATS: Record<string, { headers: string[]; row: (p: { externalId: string; name: string; email: string }, amount: number, payDate: string) => (string | number)[] }> = {
   Gusto: { headers: ["employee_id", "employee_name", "email", "earning_type", "amount", "pay_date"], row: (p, a, d) => [p.externalId, p.name, p.email, "Commission", a.toFixed(2), d] },
-  Rippling: { headers: ["Employee ID", "Employee Name", "Earning Code", "Amount", "Period End"], row: (p, a, d) => [p.externalId, p.name, "COMM", a.toFixed(2), d] },
+  Rippling: { headers: ["Employee ID", "Employee Name", "Earning Code", "Amount", "Pay Date"], row: (p, a, d) => [p.externalId, p.name, "COMM", a.toFixed(2), d] },
   ADP: { headers: ["Co Code", "File #", "Name", "Earnings 3 Code", "Earnings 3 Amount"], row: (p, a) => ["MC1", p.externalId, p.name, "C", a.toFixed(2)] },
 };
 
 const esc = (v: string | number) => {
-  const s = String(v);
+  let s = String(v);
+  // Stop spreadsheets from evaluating text fields as formulas; plain numbers (including negatives) pass through.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
@@ -29,7 +32,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     totals.set(l.payeeId, t);
   }
   const fmt = FORMATS[period.company.payrollProvider] ?? FORMATS.Gusto;
-  const payDate = lastDayOf(period.month);
+  const periodEnd = lastDayOf(period.month);
+  const fileDate = today() > periodEnd ? today() : periodEnd;
+  const payDate = addBusinessDays(fileDate, 1);
   const rows = [...totals.values()].filter((t) => Math.abs(t.amount) >= 0.01).sort((a, b) => a.payee.name.localeCompare(b.payee.name));
   const csv = [fmt.headers, ...rows.map((t) => fmt.row(t.payee, Math.round(t.amount * 100) / 100, payDate))].map((r) => r.map(esc).join(",")).join("\n");
   if (period.status === "APPROVED") {

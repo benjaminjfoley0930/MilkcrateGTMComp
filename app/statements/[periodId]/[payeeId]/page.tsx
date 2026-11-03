@@ -17,6 +17,7 @@ export default async function Statement({ params }: { params: Promise<{ periodId
   if (!period || !payee || payee.companyId !== period.companyId) notFound();
   if (s.role === "rep" && s.payeeId !== payeeId) notFound();
   if (s.role === "leader" && s.companyId !== period.companyId) notFound();
+  if (s.role === "leader" && !s.approver && payee.id !== s.payeeId && payee.managerId !== s.payeeId) notFound();
   const lines = await db.payoutLine.findMany({ where: { periodId, payeeId }, include: { deal: true }, orderBy: [{ type: "asc" }] });
   const total = lines.reduce((a, l) => a + l.amount, 0);
   const final = period.status === "APPROVED" || period.status === "EXPORTED";

@@ -107,6 +107,7 @@ model Deal {
   termMonths  Int?
   excluded    Boolean  @default(false)
   stage       String   @default("closed_won")
+  measure     String   @default("new_arr")
   source      String   @default("crm")
   createdAt   DateTime @default(now())
   lines       PayoutLine[]

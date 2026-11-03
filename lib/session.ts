@@ -19,9 +19,11 @@ function sign(payload: string) {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
+const MAX_AGE_SECONDS = 12 * 60 * 60;
+
 export async function setSession(s: Session) {
-  const payload = Buffer.from(JSON.stringify(s)).toString("base64url");
-  (await cookies()).set(COOKIE, `${payload}.${sign(payload)}`, { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" });
+  const payload = Buffer.from(JSON.stringify({ ...s, exp: Date.now() + MAX_AGE_SECONDS * 1000 })).toString("base64url");
+  (await cookies()).set(COOKIE, `${payload}.${sign(payload)}`, { httpOnly: true, sameSite: "lax", path: "/", maxAge: MAX_AGE_SECONDS, secure: process.env.NODE_ENV === "production" });
 }
 
 export async function clearSession() {
@@ -37,7 +39,9 @@ export async function getSession(): Promise<Session | null> {
   const given = Buffer.from(sig);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString()) as Session;
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString()) as Session & { exp?: number };
+    if (!parsed.exp || parsed.exp < Date.now()) return null;
+    return parsed;
   } catch {
     return null;
   }

@@ -5,6 +5,7 @@ import {
   planSchema,
   quarterOf,
   addBusinessDays,
+  addMonths,
   type AdjustmentInput,
   type CalcInput,
   type DealInput,
@@ -18,7 +19,7 @@ export const CLOSED_STATUSES = ["APPROVED", "EXPORTED"] as const;
 export async function activePlan(companyId: string, month: Month) {
   const pv = await db.planVersion.findFirst({
     where: { companyId, effectiveFrom: { lte: lastDayOf(month) } },
-    orderBy: { version: "desc" },
+    orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }],
   });
   if (!pv) throw new Error("No plan in effect for this month");
   return { version: pv, config: planSchema.parse(pv.config) as PlanConfig };
@@ -53,8 +54,7 @@ export async function buildCalcInput(companyId: string, month: Month): Promise<C
       for (const l of lines) previouslyPaidQtd[l.payeeId] = l._sum.amount ?? 0;
     }
   }
-  return {
-    planVersionId: version.id,
+  const base = {
     plan: config,
     month,
     payees: payees.map(
@@ -81,6 +81,7 @@ export async function buildCalcInput(companyId: string, month: Month): Promise<C
         closeDate: d.closeDate,
         termMonths: d.termMonths,
         excluded: d.excluded,
+        measure: d.measure === "usage_revenue" ? "usage_revenue" : "new_arr",
       }),
     ),
     adjustments: adjustments.map(
@@ -88,6 +89,44 @@ export async function buildCalcInput(companyId: string, month: Month): Promise<C
     ),
     previouslyPaidQtd,
   };
+  const trueUps = await priorQuarterTrueUps(companyId, month, base);
+  return { ...base, planVersionId: version.id, adjustments: [...base.adjustments, ...trueUps] };
+}
+
+const PQ = "pq:";
+
+/**
+ * Deals recorded after their quarter closed would never be paid, because each close only
+ * credits its own quarter. For each of the last four fully closed quarters, re-run that
+ * quarter with today's data and pay any difference from what was paid as an adjustment.
+ */
+async function priorQuarterTrueUps(companyId: string, month: Month, base: CalcInput): Promise<AdjustmentInput[]> {
+  const out: AdjustmentInput[] = [];
+  const firstOfCurrent = quarterOf(month).months[0];
+  for (let i = 1; i <= 4; i++) {
+    const q = quarterOf(addMonths(firstOfCurrent, -3 * i));
+    const periods = await db.period.findMany({ where: { companyId, month: { in: q.months } }, select: { id: true, status: true, planVersionId: true } });
+    if (periods.length < 3 || periods.some((p) => !CLOSED_STATUSES.includes(p.status as (typeof CLOSED_STATUSES)[number]))) continue;
+    const { config } = await activePlan(companyId, q.months[2]);
+    const earned = calculate({ ...base, plan: config, month: q.months[2], adjustments: [], previouslyPaidQtd: undefined });
+    const paidLines = await db.payoutLine.findMany({
+      where: { period: { companyId, status: { in: [...CLOSED_STATUSES] } }, OR: [{ periodId: { in: periods.map((p) => p.id) }, type: { not: "ADJUSTMENT" } }, { type: "ADJUSTMENT" }] },
+      select: { payeeId: true, amount: true, type: true, trace: true, periodId: true },
+    });
+    const paid = new Map<string, number>();
+    for (const l of paidLines) {
+      const adjId = (l.trace as { adjustmentId?: string } | null)?.adjustmentId ?? "";
+      if (l.type === "ADJUSTMENT" && !adjId.startsWith(`${PQ}${q.label}:`)) continue;
+      paid.set(l.payeeId, (paid.get(l.payeeId) ?? 0) + l.amount);
+    }
+    for (const s of earned.summaries) {
+      const diff = Math.round((s.earnedQtd - (paid.get(s.payeeId) ?? 0)) * 100) / 100;
+      if (Math.abs(diff) >= 1) {
+        out.push({ id: `${PQ}${q.label}:${s.payeeId}`, payeeId: s.payeeId, month, amount: diff, type: "PRIOR_QUARTER_TRUE_UP", reason: `${q.label} deals recorded after that quarter closed` });
+      }
+    }
+  }
+  return out;
 }
 
 export type ForecastRow = { payeeId: string; name: string; role: string; quota: number; closed: number; commit: number; best: number; attClosed: number; attCommit: number; attBest: number };
@@ -140,7 +179,9 @@ export async function runClose(periodId: string, actor: string) {
   const input = await buildCalcInput(period.companyId, period.month);
   const result = calculate(input);
   const resolved = await db.closeException.findMany({ where: { periodId, status: "RESOLVED" } });
-  const key = (e: { kind: string; dealId: string | null; payeeId: string | null }) => `${e.kind}|${e.dealId}|${e.payeeId}`;
+  // Amount-based checks re-open when the amount changes.
+  const key = (e: { kind: string; dealId: string | null; payeeId: string | null; message: string }) =>
+    `${e.kind}|${e.dealId}|${e.payeeId}|${e.kind === "PAYOUT_SPIKE" || e.kind === "LARGE_DEAL" ? e.message : ""}`;
   const resolvedKeys = new Set(resolved.map(key));
   await db.$transaction([
     db.payoutLine.deleteMany({ where: { periodId } }),
